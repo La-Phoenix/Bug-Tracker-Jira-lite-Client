@@ -1,10 +1,9 @@
 
 import { useTheme } from '../contexts/ThemeContext'
 // import { Moo, Sun } from 'lucide-react'
-import React from 'react'
 
 export const ThemeToggle = () => {
-  const { theme, toggleTheme } = useTheme()
+  const {  toggleTheme } = useTheme()
 
   return (
     <button
