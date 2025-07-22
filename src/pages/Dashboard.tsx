@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Filter, Bug, AlertCircle, CheckCircle, Clock, User, Calendar, Tag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Bug, AlertCircle, CheckCircle, Clock, User, Calendar} from 'lucide-react';
 
 interface Status{
   id: string;
@@ -13,18 +13,18 @@ interface Status{
   labels: string[];
   type: 'bug' | 'feature' | 'task';
 }
-interface tickets {
-    id: string;
-    title: string;
-    description: string;
-    status: 'open' | 'in-progress' | 'resolved';
-    priority: 'critical' | 'high' | 'medium' | 'low';
-    assignee: string;
-    reporter: string;
-    created: string;
-    labels: string[];
-    type: string;
-}[]
+// interface tickets {
+//     id: string;
+//     title: string;
+//     description: string;
+//     status: 'open' | 'in-progress' | 'resolved';
+//     priority: 'critical' | 'high' | 'medium' | 'low';
+//     assignee: string;
+//     reporter: string;
+//     created: string;
+//     labels: string[];
+//     type: string;
+// }[]
 
 const DashboardPage = () => {
   const [tickets, setTickets] = useState([
