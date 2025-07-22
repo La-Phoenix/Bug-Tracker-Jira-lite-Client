@@ -114,14 +114,14 @@ const DashboardPage = () => {
     setFilteredTickets(filtered);
   }, [tickets, searchTerm, statusFilter, priorityFilter]);
 
-  const getStatusIcon = (status: Status["status"]) => {
-    switch (status) {
-      case 'open': return <AlertCircle className="w-4 h-4" />;
-      case 'in-progress': return <Clock className="w-4 h-4" />;
-      case 'resolved': return <CheckCircle className="w-4 h-4" />;
-      default: return <Bug className="w-4 h-4" />;
-    }
-  };
+  // const getStatusIcon = (status: Status["status"]) => {
+  //   switch (status) {
+  //     case 'open': return <AlertCircle className="w-4 h-4" />;
+  //     case 'in-progress': return <Clock className="w-4 h-4" />;
+  //     case 'resolved': return <CheckCircle className="w-4 h-4" />;
+  //     default: return <Bug className="w-4 h-4" />;
+  //   }
+  // };
 
   const getStatusColor = (status: Status["status"]) => {
     switch (status) {
