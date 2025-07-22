@@ -2,10 +2,24 @@ import React from 'react';
 import { InputField } from './InputField';
 import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
+import { useNavigate } from 'react-router-dom';
 
 type RegisterFormProps = {
   onToggle: () => void;
 };
+
+interface ApiResponse {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data?: {
+    id: string;
+    email: string;
+    token: string;
+    roles: string;
+  }
+  errors?: string[];
+}
 
 export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
   const {
@@ -19,6 +33,8 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     validateForm
   } = useAuthForm();
 
+  const navigate = useNavigate();
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     clearErrors();
@@ -28,7 +44,7 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     setLoading(true);
 
     try {
-      const response = await fetch('https://your-api-url.com/api/auth/register', {
+      const response = await fetch('https://localhost:50487/api/Auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -39,7 +55,9 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
         })
       });
 
-      const result = await response.json();
+      
+      const result: ApiResponse = await response.json();
+      console.log("Response", result);
 
       if (!response.ok) {
         if (result.errors) {
@@ -48,13 +66,19 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
             backendErrors[key] = result.errors[key][0];
           }
           throw backendErrors;
+
         }
 
         throw { general: result.message || 'Registration failed' };
       }
+      if (!result.success) {
+        console.log('Registration failed:', result.message);
+        throw { general: result.message || 'Registration failed' };
+      }
 
       alert('Registration successful!');
-      onToggle(); // Switch to login
+      // onToggle(); // Switch to login
+      navigate('/'); // Redirect to home or dashboard after successful registration
     } catch (err: any) {
       if (typeof err === 'object') {
         setErrors(err);
