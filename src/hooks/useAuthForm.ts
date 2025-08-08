@@ -31,7 +31,7 @@ export function useAuthForm() {
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
     if (!formData.password) newErrors.password = 'Password is required';
-    if (formData.password.length < 6) newErrors.password = 'Minimum 6 characters';
+    if (formData.password.length < 8) newErrors.password = 'Minimum 8 characters';
     if (formData.confirmPassword !== formData.password) newErrors.confirmPassword = 'Passwords do not match';
     if (!formData.agree) newErrors.agree = 'You must agree to the terms';
 

@@ -3,23 +3,16 @@ import { InputField } from './InputField';
 import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
 import { useNavigate } from 'react-router-dom';
+import { API_SERVER_BASE_URL } from '../../utils/constants';
+import type { ApiResponse } from '../../types/response';
+import { ErrorPopup, useErrorPopup } from '../PopUp';
+import { Button } from '../Button';
+import { useAuth } from '../../contexts/AuthContext';
 
 type RegisterFormProps = {
   onToggle: () => void;
 };
 
-interface ApiResponse {
-  success: boolean;
-  statusCode: number;
-  message: string;
-  data?: {
-    id: string;
-    email: string;
-    token: string;
-    roles: string;
-  }
-  errors?: string[];
-}
 
 export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
   const {
@@ -32,8 +25,10 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     clearErrors,
     validateForm
   } = useAuthForm();
+  const { error, showError, hideError } = useErrorPopup();
 
   const navigate = useNavigate();
+  const { setIsAuthenticated } = useAuth();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +39,7 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     setLoading(true);
 
     try {
-      const response = await fetch('https://localhost:50487/api/Auth/register', {
+      const response = await fetch(`${API_SERVER_BASE_URL}/Auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,37 +56,40 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
 
       if (!response.ok) {
         if (result.errors) {
-          const backendErrors: Record<string, string> = {};
-          for (const key in result.errors) {
-            backendErrors[key] = result.errors[key][0];
-          }
-          throw backendErrors;
-
+          console.log("Backend errors:", result.errors);
+          const newMessage = result.errors.join(' ');
+          setLoading(false);
+          showError(newMessage, 'Login Error');
+          return;
+        } else {
+          setLoading(false);
+          showError(result.message || 'An unexpected error occurred', 'Login Error');
+          console.error("Error message:", result.message);
+          return;
         }
-
-        throw { general: result.message || 'Registration failed' };
       }
-      if (!result.success) {
-        console.log('Registration failed:', result.message);
-        throw { general: result.message || 'Registration failed' };
-      }
-
-      alert('Registration successful!');
-      // onToggle(); // Switch to login
-      navigate('/'); // Redirect to home or dashboard after successful registration
+      // Handle successful Sign Up
+      localStorage.setItem('token', result.data?.token || '');
+      localStorage.setItem('userEmail', result.data?.email || '');
+      showError('Sign up successful! Redirecting to dashboard...', 'Sign Up Success', 'info');
+      setTimeout(() => {
+        setIsAuthenticated(true);
+        navigate('/dashboard', { replace: true });
+      }, 3000);
     } catch (err: any) {
-      if (typeof err === 'object') {
-        setErrors(err);
-      } else {
-        alert('An unexpected error occurred');
-      }
+       if (typeof err === 'object') {
+          setErrors(err);
+        } else {
+          showError(err.message || 'An unexpected error occurred');
+        }
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="animate-fade-in">
+    <>
+      <form onSubmit={handleSubmit} className="animate-fade-in">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create Account</h2>
 
       <div className="space-y-3 mb-6">
@@ -124,18 +122,30 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       </div>
       {errors.agree && <p className="text-sm text-red-500 mb-2">{errors.agree}</p>}
 
-      <button
+      {/* <button
         type="submit"
         disabled={loading}
         className={`w-full ${loading ? 'bg-gray-400' : 'bg-[#0c1521] hover:bg-[#1f2630]'} text-white py-3 rounded-lg font-semibold transition`}
       >
         {loading ? 'Creating account...' : 'Create Account'}
-      </button>
+      </button> */}
+      <Button type="submit" isLoading={loading} message="Creating account...">
+        Create Account
+      </Button>
 
       <p className="text-center text-sm text-gray-600 mt-4">
         Already have an account?{' '}
         <span className="text-[#1f2630] hover:underline cursor-pointer" onClick={onToggle}>Sign in</span>
       </p>
     </form>
+    <ErrorPopup
+        isOpen={error.isOpen}
+        onClose={hideError}
+        title={error.title}
+        message={error.message}
+        type={error.type}
+        autoClose={false}
+      />
+    </>
   );
 };
