@@ -3,7 +3,7 @@ import { InputField } from './InputField';
 import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
 import { useNavigate } from 'react-router-dom';
-import { API_SERVER_BASE_URL } from '../../utils/constants';
+import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
 import type { ApiResponse } from '../../types/response';
 import { ErrorPopup, useErrorPopup } from '../PopUp';
 import { Button } from '../Button';
@@ -39,7 +39,7 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_SERVER_BASE_URL}/Auth/register`, {
+      const response = await fetch(`${API_SERVER_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,8 +93,12 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create Account</h2>
 
       <div className="space-y-3 mb-6">
-        <SocialButton provider="google" onClick={() => alert('Google register')} />
-        <SocialButton provider="github" onClick={() => alert('GitHub register')} />
+        <SocialButton provider="google" onClick={() => {
+          window.location.href = `${API_SERVER_BASE_URL}/auth/external/Google?returnUrl=${API_CLIENT_BASE_URL}`;
+        }} />
+        <SocialButton provider="github" onClick={() => {
+          window.location.href = `${API_SERVER_BASE_URL}/auth/external/GitHub?returnUrl=${API_CLIENT_BASE_URL}`;
+        }} />
       </div>
 
       <div className="flex items-center justify-center my-4">

@@ -1,446 +1,611 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, Bug, AlertCircle, CheckCircle, Clock, User, Calendar} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import type { CreateIssueRequest, Issue, Priority, Project, Status, User, UpdateIssueRequest } from '../types/interface';
+import { IssueService } from '../services/IssueServices';
+import { ProjectService } from '../services/ProjectService';
+import { UserService } from '../services/UserService';
+import { StatusService } from '../services/StatusService';
+import { PriorityService } from '../services/PriorityService';
+import { IssuesGridSkeleton, StatsGridSkeleton } from '../components/IssueCardSkeleton';
+import { IssueCard } from '../components/IssueCard';
+import { CreateIssueModal } from '../components/IssueModal';
+import { EditIssueModal } from '../components/EditIssueModal';
+import { IssueDetailModal } from '../components/IssueDetailModal';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
-interface Status{
-  id: string;
-  title: string;
-  description: string;
-  status: 'open' | 'in-progress' | 'resolved';
-  priority: 'critical' | 'high' | 'medium' | 'low';
-  assignee: string;
-  reporter: string;
-  created: string;
-  labels: string[];
-  type: 'bug' | 'feature' | 'task';
-}
-// interface tickets {
-//     id: string;
-//     title: string;
-//     description: string;
-//     status: 'open' | 'in-progress' | 'resolved';
-//     priority: 'critical' | 'high' | 'medium' | 'low';
-//     assignee: string;
-//     reporter: string;
-//     created: string;
-//     labels: string[];
-//     type: string;
-// }[]
+const Dashboard: React.FC = () => {
+  // Issues state
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [filteredIssues, setFilteredIssues] = useState<Issue[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const DashboardPage = () => {
-  const [tickets, setTickets] = useState([
-    {
-      id: 'BUG-001',
-      title: 'Login form validation not working',
-      description: 'Users can submit empty login forms without validation errors',
-      status: 'open',
-      priority: 'high',
-      assignee: 'John Doe',
-      reporter: 'Jane Smith',
-      created: '2025-07-20',
-      labels: ['frontend', 'validation'],
-      type: 'bug'
-    },
-    {
-      id: 'BUG-002',
-      title: 'Database connection timeout',
-      description: 'Intermittent database timeouts causing 500 errors',
-      status: 'in-progress',
-      priority: 'critical',
-      assignee: 'Mike Johnson',
-      reporter: 'Sarah Wilson',
-      created: '2025-07-19',
-      labels: ['backend', 'database'],
-      type: 'bug'
-    },
-    {
-      id: 'FEAT-003',
-      title: 'Add dark mode toggle',
-      description: 'Implement system-wide dark mode with user preference storage',
-      status: 'resolved',
-      priority: 'medium',
-      assignee: 'Alice Brown',
-      reporter: 'Tom Davis',
-      created: '2025-07-18',
-      labels: ['frontend', 'ui'],
-      type: 'feature'
-    },
-    {
-      id: 'BUG-004',
-      title: 'Memory leak in dashboard',
-      description: 'Dashboard component causing memory leaks on long sessions',
-      status: 'open',
-      priority: 'medium',
-      assignee: 'Chris Lee',
-      reporter: 'Emma Taylor',
-      created: '2025-07-17',
-      labels: ['frontend', 'performance'],
-      type: 'bug'
-    }
-  ]);
+  // Reference data state
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [referenceDataLoading, setReferenceDataLoading] = useState(true);
 
-  const [filteredTickets, setFilteredTickets] = useState(tickets);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newTicket, setNewTicket] = useState({
-    title: '',
-    description: '',
-    priority: 'medium',
-    assignee: '',
-    type: 'bug',
-    labels: []
-  });
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [issueToDelete, setIssueToDelete] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Edit modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [issueToEdit, setIssueToEdit] = useState<Issue | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  
+  // Filter states
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('');
+  const [reporterFilter, setReporterFilter] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
+  // Load reference data on component mount
   useEffect(() => {
-    let filtered = tickets;
-    
-    if (searchTerm) {
-      filtered = filtered.filter(ticket =>
-        ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        ticket.id.toLowerCase().includes(searchTerm.toLowerCase())
+    loadReferenceData();
+  }, []);
+
+  // Load issues after reference data is loaded
+  useEffect(() => {
+    if (!referenceDataLoading) {
+      loadIssues(true);
+    }
+  }, [referenceDataLoading]);
+
+  // Apply filters whenever issues or filter states change
+  useEffect(() => {
+    applyFilters();
+  }, [issues, statusFilter, priorityFilter, assigneeFilter, reporterFilter, searchTerm]);
+
+  const loadReferenceData = async () => {
+    try {
+      setReferenceDataLoading(true);
+      setError(null);
+
+      // Load all reference data in parallel
+      const [projectsRes, usersRes, statusesRes, prioritiesRes] = await Promise.all([
+        ProjectService.getAllProjects(),
+        UserService.getAllUsers(),
+        StatusService.getAllStatuses(),
+        PriorityService.getAllPriorities()
+      ]);
+
+      // Handle projects
+      if (projectsRes.success && Array.isArray(projectsRes.data)) {
+        setProjects(projectsRes.data);
+      } else {
+        console.warn('Failed to load projects:', projectsRes.message);
+      }
+
+      // Handle users
+      if (usersRes.success && Array.isArray(usersRes.data)) {
+        setUsers(usersRes.data);
+      } else {
+        console.warn('Failed to load users:', usersRes.message);
+      }
+
+      // Handle statuses
+      if (statusesRes.success && Array.isArray(statusesRes.data)) {
+        setStatuses(statusesRes.data);
+      } else {
+        console.warn('Failed to load statuses:', statusesRes.message);
+      }
+
+      // Handle priorities
+      if (prioritiesRes.success && Array.isArray(prioritiesRes.data)) {
+        setPriorities(prioritiesRes.data);
+      } else {
+        console.warn('Failed to load priorities:', prioritiesRes.message);
+      }
+
+    } catch (err: any) {
+      console.error('Error loading reference data:', err);
+      setError('Failed to load reference data. Some features may not work properly.');
+    } finally {
+      setReferenceDataLoading(false);
+    }
+  };
+
+  const loadIssues = async (isInitial = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await IssueService.getAllIssues();
+      console.log('Issues response:', response);
+      
+      if (response.success && Array.isArray(response.data)) {
+        setIssues(response.data);
+        console.log('Issues set:', response.data);
+      } else {
+        console.warn('Unexpected response structure:', response);
+        setError(response.message || 'Failed to load issues - unexpected response format');
+        setIssues([]);
+      }
+    } catch (err: any) {
+      console.error('Error loading issues:', err);
+      setError(err.message || 'Failed to load issues');
+      setIssues([]);
+    } finally {
+      setLoading(false);
+      if (isInitial) {
+        setInitialLoad(false);
+      }
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...issues];
+
+    if (statusFilter) {
+      filtered = filtered.filter(issue => 
+        issue.statusName.toLowerCase() === statusFilter.toLowerCase()
       );
     }
-    
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(ticket => ticket.status === statusFilter);
-    }
-    
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(ticket => ticket.priority === priorityFilter);
-    }
-    
-    setFilteredTickets(filtered);
-  }, [tickets, searchTerm, statusFilter, priorityFilter]);
 
-  // const getStatusIcon = (status: Status["status"]) => {
-  //   switch (status) {
-  //     case 'open': return <AlertCircle className="w-4 h-4" />;
-  //     case 'in-progress': return <Clock className="w-4 h-4" />;
-  //     case 'resolved': return <CheckCircle className="w-4 h-4" />;
-  //     default: return <Bug className="w-4 h-4" />;
-  //   }
-  // };
+    if (priorityFilter) {
+      filtered = filtered.filter(issue => 
+        issue.priorityName.toLowerCase() === priorityFilter.toLowerCase()
+      );
+    }
 
-  const getStatusColor = (status: Status["status"]) => {
-    switch (status) {
-      case 'open': return 'text-red-400 bg-red-900/20';
-      case 'in-progress': return 'text-yellow-400 bg-yellow-900/20';
-      case 'resolved': return 'text-green-400 bg-green-900/20';
-      default: return 'text-gray-400 bg-gray-900/20';
+    if (assigneeFilter) {
+      if (assigneeFilter === '') {
+        // Show unassigned issues
+        filtered = filtered.filter(issue => !issue.assigneeName);
+      } else {
+        filtered = filtered.filter(issue => 
+          issue.assigneeName?.toLowerCase() === assigneeFilter.toLowerCase()
+        );
+      }
+    }
+
+    if (reporterFilter) {
+      filtered = filtered.filter(issue => 
+        issue.reporterName.toLowerCase() === reporterFilter.toLowerCase()
+      );
+    }
+
+    if (searchTerm) {
+      filtered = filtered.filter(issue => 
+        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (issue.description && issue.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    setFilteredIssues(filtered);
+  };
+
+  const handleCreateIssue = async (issueData: CreateIssueRequest) => {
+    try {
+      setCreateLoading(true);
+      const response = await IssueService.createIssue(issueData);
+      
+      if (response.success) {
+        setIssues(prev => [response.data, ...prev]);
+        setIsCreateModalOpen(false);
+      } else {
+        throw new Error(response.message || 'Failed to create issue');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create issue');
+      console.error('Error creating issue:', err);
+      throw err;
+    } finally {
+      setCreateLoading(false);
     }
   };
 
-  const getPriorityColor = (priority: Status["priority"]) => {
-    switch (priority) {
-      case 'critical': return 'bg-red-600';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+  const handleEditIssue = (issue: Issue) => {
+    setIssueToEdit(issue);
+    setShowEditModal(true);
+    setShowDetailModal(false); // Close detail modal if open
+  };
+
+  const handleUpdateIssue = async (issueData: UpdateIssueRequest) => {
+    try {
+      setEditLoading(true);
+      const response = await IssueService.updateIssue(issueData);
+      
+      if (response.success) {
+        // Update the issue in the list
+        setIssues(prev => prev.map(issue => 
+          issue.id === issueData.id ? response.data : issue
+        ));
+        setShowEditModal(false);
+        setIssueToEdit(null);
+        
+        // If the updated issue was selected in detail modal, update it
+        if (selectedIssue && selectedIssue.id === issueData.id) {
+          setSelectedIssue(response.data);
+        }
+      } else {
+        throw new Error(response.message || 'Failed to update issue');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update issue');
+      console.error('Error updating issue:', err);
+      throw err;
+    } finally {
+      setEditLoading(false);
     }
   };
 
-  const createTicket = () => {
-    if (!newTicket.title || !newTicket.description) return;
+  const handleDeleteClick = (id: number) => {
+    setIssueToDelete(id);
+    setShowDeleteModal(true);
+    setShowDetailModal(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!issueToDelete) return;
     
-    const ticket = {
-      id: `${newTicket.type.toUpperCase()}-${String(tickets.length + 1).padStart(3, '0')}`,
-      ...newTicket,
-      status: 'open',
-      reporter: 'Current User',
-      created: new Date().toISOString().split('T')[0],
-      labels: newTicket.labels.length > 0 ? newTicket.labels : ['unlabeled']
+    try {
+      setDeleteLoading(true);
+      const response = await IssueService.deleteIssue(issueToDelete);
+      
+      if (response.success) {
+        setIssues(prev => prev.filter(issue => issue.id !== issueToDelete));
+        setShowDeleteModal(false);
+        setIssueToDelete(null);
+      } else {
+        throw new Error(response.message || 'Failed to delete issue');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete issue');
+      console.error('Error deleting issue:', err);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleIssueClick = async (issue: Issue) => {
+    try {
+      const response = await IssueService.getIssueById(issue.id);
+      if (response.success) {
+        setSelectedIssue(response.data);
+        setShowDetailModal(true);
+      }
+    } catch (err) {
+      console.error('Error fetching issue details:', err);
+      setSelectedIssue(issue);
+      setShowDetailModal(true);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setStatusFilter('');
+    setPriorityFilter('');
+    setAssigneeFilter('');
+    setReporterFilter('');
+    setSearchTerm('');
+  };
+
+  // Get unique assignees and reporters from issues
+  const getUniqueAssignees = () => {
+    const assignees = issues
+      .filter(issue => issue.assigneeName)
+      .map(issue => ({ id: issue.assigneeId!, name: issue.assigneeName! }));
+    
+    // Remove duplicates
+    const unique = assignees.filter((assignee, index, self) => 
+      index === self.findIndex(a => a.id === assignee.id)
+    );
+    
+    return unique;
+  };
+
+  const getUniqueReporters = () => {
+    const reporters = issues
+      .map(issue => ({ id: issue.reporterId, name: issue.reporterName }));
+    
+    // Remove duplicates
+    const unique = reporters.filter((reporter, index, self) => 
+      index === self.findIndex(r => r.id === reporter.id)
+    );
+    
+    return unique;
+  };
+
+  const getStats = () => {
+    return {
+      total: issues.length,
+      todo: issues.filter(issue => issue.statusName.toLowerCase() === 'todo').length,
+      inProgress: issues.filter(issue => issue.statusName.toLowerCase() === 'in progress').length,
+      completed: issues.filter(issue => issue.statusName.toLowerCase() === 'completed').length,
     };
-    
-    setTickets([...tickets, ticket]);
-    setNewTicket({
-      title: '',
-      description: '',
-      priority: 'medium',
-      assignee: '',
-      type: 'bug',
-      labels: []
-    });
-    setShowCreateModal(false);
   };
 
-  const updateTicketStatus = (id: string, newStatus: Status["status"]) => {
-    setTickets(tickets.map(ticket =>
-      ticket.id === id ? { ...ticket, status: newStatus } : ticket
-    ));
-  };
+  const stats = getStats();
 
-  const stats = {
-    open: tickets.filter(t => t.status === 'open').length,
-    inProgress: tickets.filter(t => t.status === 'in-progress').length,
-    resolved: tickets.filter(t => t.status === 'resolved').length,
-    total: tickets.length
-  };
+  // Show loading state while reference data is loading
+  if (referenceDataLoading || initialLoad) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Loading dashboard data...
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="mb-8">
+            <StatsGridSkeleton />
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <IssuesGridSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
-      {/* Header */}
-      <header className="bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* <Bug className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400" /> */}
-            <h1 className="text-lg sm:text-2xl font-bold">Issue</h1>
+    <>
+      <div className="bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                  Track and manage your project issues
+                </p>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 transform"
+              >
+                <span>+</span>
+                Create Issue
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 px-2 sm:px-4 py-2 rounded-lg flex items-center space-x-1 sm:space-x-2 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Create Issue</span>
-            <span className="sm:hidden">New</span>
-          </button>
-        </div>
-      </header>
 
-      {/* Stats Cards */}
-      <div className="px-4 sm:px-6 py-4 sm:py-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-4 sm:mb-6">
-          <div className="bg-gray-800 p-3 sm:p-6 rounded-lg border border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="mb-2 sm:mb-0">
-                <p className="text-gray-400 text-xs sm:text-sm">Open Issues</p>
-                <p className="text-xl sm:text-3xl font-bold text-red-400">{stats.open}</p>
-              </div>
-              <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-red-400 self-end sm:self-auto" />
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex justify-between items-center animate-fade-in">
+              <span>{error}</span>
+              <button 
+                onClick={() => setError(null)}
+                className="ml-2 text-red-500 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+              >
+                ✕
+              </button>
             </div>
-          </div>
-          <div className="bg-gray-800 p-3 sm:p-6 rounded-lg border border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="mb-2 sm:mb-0">
-                <p className="text-gray-400 text-xs sm:text-sm">In Progress</p>
-                <p className="text-xl sm:text-3xl font-bold text-yellow-400">{stats.inProgress}</p>
-              </div>
-              <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-400 self-end sm:self-auto" />
-            </div>
-          </div>
-          <div className="bg-gray-800 p-3 sm:p-6 rounded-lg border border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="mb-2 sm:mb-0">
-                <p className="text-gray-400 text-xs sm:text-sm">Resolved</p>
-                <p className="text-xl sm:text-3xl font-bold text-green-400">{stats.resolved}</p>
-              </div>
-              <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-400 self-end sm:self-auto" />
-            </div>
-          </div>
-          <div className="bg-gray-800 p-3 sm:p-6 rounded-lg border border-gray-700">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div className="mb-2 sm:mb-0">
-                <p className="text-gray-400 text-xs sm:text-sm">Total Issues</p>
-                <p className="text-xl sm:text-3xl font-bold text-blue-400">{stats.total}</p>
-              </div>
-              <Bug className="w-6 h-6 sm:w-8 sm:h-8 text-blue-400 self-end sm:self-auto" />
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Filters */}
-        <div className="bg-gray-800 p-3 sm:p-4 rounded-lg border border-gray-700 mb-4 sm:mb-6">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
-            <div className="flex-1 min-w-0">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {[
+              { title: 'Total Issues', value: stats.total, icon: '📊', color: 'blue' },
+              { title: 'Todo', value: stats.todo, icon: '📋', color: 'yellow' },
+              { title: 'In Progress', value: stats.inProgress, icon: '🔄', color: 'blue' },
+              { title: 'Completed', value: stats.completed, icon: '✅', color: 'green' }
+            ].map((stat, index) => (
+              <div 
+                key={stat.title}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 transform transition-all duration-200 hover:scale-105 hover:shadow-md animate-fade-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                  </div>
+                  <div className={`h-12 w-12 bg-${stat.color}-100 dark:bg-${stat.color}-900/20 rounded-lg flex items-center justify-center transition-transform hover:scale-110`}>
+                    <span className="text-2xl">{stat.icon}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6 animate-fade-in">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-64">
                 <input
                   type="text"
                   placeholder="Search issues..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 text-sm sm:text-base text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 focus:scale-[1.02]"
                 />
               </div>
-            </div>
-            <div className="flex gap-2 sm:gap-4">
+              
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 rounded-lg px-2 sm:px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 focus:scale-[1.02]"
               >
-                <option value="all">All Status</option>
-                <option value="open">Open</option>
-                <option value="in-progress">In Progress</option>
-                <option value="resolved">Resolved</option>
+                <option value="">All Statuses</option>
+                {statuses.map(status => (
+                  <option key={status.id} value={status.name}>{status.name}</option>
+                ))}
               </select>
+
               <select
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value)}
-                className="flex-1 sm:flex-initial bg-gray-700 border border-gray-600 rounded-lg px-2 sm:px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 focus:scale-[1.02]"
               >
-                <option value="all">All Priority</option>
-                <option value="critical">Critical</option>
-                <option value="high">High</option>
-                <option value="medium">Medium</option>
-                <option value="low">Low</option>
+                <option value="">All Priorities</option>
+                {priorities.map(priority => (
+                  <option key={priority.id} value={priority.name}>{priority.name}</option>
+                ))}
               </select>
+
+              <select
+                value={assigneeFilter}
+                onChange={(e) => setAssigneeFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 focus:scale-[1.02]"
+              >
+                <option value="">All Assignees</option>
+                <option value="">Unassigned</option>
+                {getUniqueAssignees().map(assignee => (
+                  <option key={assignee.id} value={assignee.name}>{assignee.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={reporterFilter}
+                onChange={(e) => setReporterFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all duration-200 focus:scale-[1.02]"
+              >
+                <option value="">All Reporters</option>
+                {getUniqueReporters().map(reporter => (
+                  <option key={reporter.id} value={reporter.name}>{reporter.name}</option>
+                ))}
+              </select>
+
+              <button
+                onClick={clearAllFilters}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+              >
+                Clear All
+              </button>
+
+              <button
+                onClick={() => loadReferenceData()}
+                className="px-4 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 border border-blue-300 dark:border-blue-600 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-200 hover:scale-105"
+                disabled={referenceDataLoading}
+              >
+                {referenceDataLoading ? 'Loading...' : 'Refresh Data'}
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Tickets List */}
-        <div className="space-y-3 sm:space-y-4">
-          {filteredTickets.map((ticket) => (
-            <div key={ticket.id} className="bg-gray-800 border border-gray-700 rounded-lg p-3 sm:p-6 hover:border-gray-600 transition-colors">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  <span className="text-blue-400 font-mono text-xs sm:text-sm">{ticket.id}</span>
-                  <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${getPriorityColor(ticket.priority as any)}`}></div>
-                  <span className="text-xs text-gray-400 uppercase tracking-wide">{ticket.priority}</span>
-                  <span className="text-xs bg-gray-700 px-2 py-1 rounded sm:hidden">{ticket.type}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <select
-                    value={ticket.status}
-                    onChange={(e) => updateTicketStatus(ticket.id, e.target.value as Status["status"])}
-                    className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium border-0 ${getStatusColor(ticket.status as any)}`}
+          {/* Issues Grid */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Issues ({filteredIssues.length})
+              </h2>
+              <button
+                onClick={() => loadIssues()}
+                disabled={loading}
+                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 flex items-center gap-1 transition-all duration-200 hover:scale-105"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    ↻ Refresh
+                  </>
+                )}
+              </button>
+            </div>
+
+            {filteredIssues.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredIssues.map((issue, index) => (
+                  <div 
+                    key={issue.id}
+                    className="animate-fade-in group"
+                    style={{ animationDelay: `${index * 0.05}s` }}
                   >
-                    <option value="open">Open</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-              </div>
-              
-              <h3 className="text-base sm:text-lg font-semibold text-gray-100 mb-2 leading-tight">{ticket.title}</h3>
-              <p className="text-sm sm:text-base text-gray-300 mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-none">{ticket.description}</p>
-              
-              <div className="flex flex-wrap gap-1 sm:gap-2 mb-3 sm:mb-4">
-                {ticket.labels.map((label, index) => (
-                  <span key={index} className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded-full">
-                    {label}
-                  </span>
+                    <IssueCard
+                      issue={issue}
+                      onEdit={handleEditIssue}
+                      onDelete={handleDeleteClick}
+                      onClick={handleIssueClick}
+                    />
+                  </div>
                 ))}
               </div>
-              
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-gray-400 space-y-2 sm:space-y-0">
-                <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-4">
-                  <div className="flex items-center space-x-1">
-                    <User className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="truncate">Assigned: {ticket.assignee || 'Unassigned'}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Created: {ticket.created}</span>
-                  </div>
-                </div>
-                <span className="text-xs bg-gray-700 px-2 py-1 rounded hidden sm:inline">{ticket.type}</span>
-              </div>
-            </div>
-          ))}
-          
-          {filteredTickets.length === 0 && (
-            <div className="text-center py-12">
-              <Bug className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 text-lg">No issues found</p>
-              <p className="text-gray-500 text-sm">Try adjusting your search or filters</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg sm:text-xl font-bold">Create New Issue</h2>
-                <button 
-                  onClick={() => setShowCreateModal(false)}
-                  className="text-gray-400 hover:text-gray-200 p-1"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
-                  <input
-                    type="text"
-                    value={newTicket.title}
-                    onChange={(e) => setNewTicket({...newTicket, title: e.target.value})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter issue title..."
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                  <textarea
-                    value={newTicket.description}
-                    onChange={(e) => setNewTicket({...newTicket, description: e.target.value})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500 h-20 sm:h-24 resize-none"
-                    placeholder="Describe the issue..."
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
-                    <select
-                      value={newTicket.type}
-                      onChange={(e) => setNewTicket({...newTicket, type: e.target.value})}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="bug">Bug</option>
-                      <option value="feature">Feature</option>
-                      <option value="task">Task</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
-                    <select
-                      value={newTicket.priority}
-                      onChange={(e) => setNewTicket({...newTicket, priority: e.target.value})}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Assignee</label>
-                  <input
-                    type="text"
-                    value={newTicket.assignee}
-                    onChange={(e) => setNewTicket({...newTicket, assignee: e.target.value})}
-                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm sm:text-base text-gray-100 focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter assignee name..."
-                  />
-                </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+            ) : (
+              <div className="text-center py-12 animate-fade-in">
+                <span className="text-6xl mb-4 block">📝</span>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No issues found</h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">
+                  {issues.length === 0 
+                    ? "Get started by creating your first issue" 
+                    : "Try adjusting your filters or search terms"
+                  }
+                </p>
                 <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-gray-300 hover:text-gray-100 transition-colors order-2 sm:order-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={createTicket}
-                  disabled={!newTicket.title || !newTicket.description}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors order-1 sm:order-2"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-sm transition-all duration-200 hover:scale-105 transform"
                 >
                   Create Issue
                 </button>
               </div>
-            </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Modals */}
+      <CreateIssueModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateIssue}
+        projects={projects}
+        users={users}
+        statuses={statuses}
+        priorities={priorities}
+        loading={createLoading}
+      />
+
+      <EditIssueModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setIssueToEdit(null);
+        }}
+        onSubmit={handleUpdateIssue}
+        issue={issueToEdit}
+        projects={projects}
+        users={users}
+        statuses={statuses}
+        priorities={priorities}
+        loading={editLoading}
+      />
+
+      <IssueDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedIssue(null);
+        }}
+        issue={selectedIssue}
+        onEdit={handleEditIssue}
+        onDelete={handleDeleteClick}
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setIssueToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Delete Issue"
+        message={`Are you sure you want to delete this issue? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+        loading={deleteLoading}
+      />
+    </>
   );
 };
 
-export default DashboardPage;
+export default Dashboard;
