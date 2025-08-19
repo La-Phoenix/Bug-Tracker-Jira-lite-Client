@@ -45,6 +45,9 @@ export interface ApiResponse<T> {
 export interface Project {
   id: number;
   name: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 
@@ -75,6 +78,7 @@ export interface User {
   email: string;
   role?: "Admin" | "User";
   createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface UpdateIssueRequest {
