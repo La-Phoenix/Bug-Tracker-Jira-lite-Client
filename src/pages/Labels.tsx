@@ -5,19 +5,13 @@ import {
   Search,
   Edit3,
   Trash2,
-  MoreHorizontal,
-  Palette,
-  Hash,
-  Filter,
   RefreshCw,
   Save,
   X,
   AlertCircle,
   CheckCircle,
   Loader,
-  Eye,
   Copy,
-  Settings,
   Star,
   Archive
 } from 'lucide-react';
@@ -41,6 +35,7 @@ const Labels: React.FC = () => {
   const [allIssues, setAllIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  console.log(allIssues)
   
   // Search and filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,7 +46,7 @@ const Labels: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingLabel, setEditingLabel] = useState<Label | null>(null);
   const [deletingLabel, setDeletingLabel] = useState<Label | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+//   const [isDeleting, setIsDeleting] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
@@ -101,6 +96,7 @@ const Labels: React.FC = () => {
   };
 
   const generateMockLabels = (issues: Issue[]): Label[] => {
+    console.log(issues)
     const commonLabels = [
       { name: 'bug', color: '#EF4444', description: 'Something isn\'t working', isDefault: true },
       { name: 'enhancement', color: '#3B82F6', description: 'New feature or request', isDefault: true },

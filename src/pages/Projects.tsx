@@ -3,12 +3,6 @@ import {
   FolderOpen,
   Plus,
   Search,
-  Filter,
-  MoreHorizontal,
-  Edit3,
-  Trash2,
-  Calendar,
-  Users,
   Bug,
   CheckCircle,
   Clock,
@@ -16,14 +10,12 @@ import {
   Loader,
   Grid3X3,
   List,
-  Star,
-  Archive,
   Eye,
-  Settings,
-  GitBranch,
   Activity,
   Target,
-  TrendingUp
+  TrendingUp,
+  Settings,
+  Trash2
 } from 'lucide-react';
 import { ProjectService } from '../services/ProjectService';
 import { IssueService } from '../services/IssueServices';
@@ -65,6 +57,8 @@ const Projects: React.FC = () => {
   const [editingProject, setEditingProject] = useState<ProjectWithStats | null>(null);
   const [deletingProject, setDeletingProject] = useState<ProjectWithStats | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  console.log(isCreateModalOpen, editingProject, allIssues, allUsers)
 
   useEffect(() => {
     loadProjectsData();
@@ -199,10 +193,10 @@ const Projects: React.FC = () => {
   };
 
   const confirmDelete = async () => {
-    // if (!deletingProject) return;
+    if (!deletingProject) return;
     
-    // setIsDeleting(true);
-    // try {
+    setIsDeleting(true);
+    try {
     //   const response = await ProjectService.deleteProject(deletingProject.id);
     //   if (response.success) {
     //     setProjects(prev => prev.filter(p => p.id !== deletingProject.id));
@@ -211,12 +205,12 @@ const Projects: React.FC = () => {
     //   } else {
     //     alert(response.message || 'Failed to delete project');
     //   }
-    // } catch (err: any) {
-    //   console.error('Error deleting project:', err);
-    //   alert('An error occurred while deleting the project');
-    // } finally {
-    //   setIsDeleting(false);
-    // }
+    } catch (err: any) {
+      console.error('Error deleting project:', err);
+      alert('An error occurred while deleting the project');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getStatusColor = (project: ProjectWithStats) => {

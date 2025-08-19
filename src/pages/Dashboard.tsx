@@ -22,7 +22,7 @@ import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
 import { UserService } from '../services/UserService';
 import { Link } from 'react-router-dom';
-import type { Issue, Project } from '../types/interface';
+import type { Issue } from '../types/interface';
 
 interface DashboardStats {
   totalIssues: number;

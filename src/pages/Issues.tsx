@@ -3,11 +3,8 @@ import {
   Bug, 
   Plus, 
   Search, 
-  Filter, 
-  MoreHorizontal,
   Calendar,
   User,
-  Tag,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -197,22 +194,22 @@ const Issues: React.FC = () => {
     }
   };
 
-  const handleDeleteIssue = async (issueId: number) => {
-    if (!confirm('Are you sure you want to delete this issue?')) return;
+//   const handleDeleteIssue = async (issueId: number) => {
+//     if (!confirm('Are you sure you want to delete this issue?')) return;
     
-    try {
-      const response = await IssueService.deleteIssue(issueId);
-      if (response.success) {
-        setIssues(prev => prev.filter(issue => issue.id !== issueId));
-        setSelectedIssues(prev => prev.filter(id => id !== issueId));
-      } else {
-        alert(response.message || 'Failed to delete issue');
-      }
-    } catch (err: any) {
-      console.error('Error deleting issue:', err);
-      alert('An error occurred while deleting the issue');
-    }
-  };
+//     try {
+//       const response = await IssueService.deleteIssue(issueId);
+//       if (response.success) {
+//         setIssues(prev => prev.filter(issue => issue.id !== issueId));
+//         setSelectedIssues(prev => prev.filter(id => id !== issueId));
+//       } else {
+//         alert(response.message || 'Failed to delete issue');
+//       }
+//     } catch (err: any) {
+//       console.error('Error deleting issue:', err);
+//       alert('An error occurred while deleting the issue');
+//     }
+//   };
 
   const handleBulkDelete = async () => {
     if (selectedIssues.length === 0) return;

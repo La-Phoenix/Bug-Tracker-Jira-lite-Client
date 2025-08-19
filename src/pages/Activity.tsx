@@ -9,20 +9,13 @@ import {
   CheckCircle,
   XCircle,
   MessageSquare,
-  Tag,
-  GitBranch,
-  Star,
-  Archive,
   AlertCircle,
   User,
   Calendar,
-  Filter,
   RefreshCw,
   Activity as ActivityIcon,
   Loader,
   Search,
-  Eye,
-  Trash2
 } from 'lucide-react';
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
@@ -62,6 +55,8 @@ const Activity: React.FC = () => {
   const [allUsers, setAllUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+
+  console.log(allIssues, allProjects)
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -111,10 +106,10 @@ const Activity: React.FC = () => {
 
   const generateMockActivities = (issues: Issue[], projects: Project[], users: UserType[]): ActivityItem[] => {
     const activities: ActivityItem[] = [];
-    const now = new Date();
+    // const now = new Date();
 
     // Generate activities from issues
-    issues.forEach((issue, index) => {
+    issues.forEach((issue) => {
       const createdDate = new Date(issue.createdAt);
       const updatedDate = new Date(issue.updatedAt || issue.createdAt);
       
@@ -260,7 +255,7 @@ const Activity: React.FC = () => {
     activities.push(...commentActivities);
 
     // Generate some user activities
-    const userActivities: any = users.slice(0, 3).map((user, i) => ({
+    const userActivities: any = users.slice(0, 3).map((user) => ({
       id: `user-join-${user.id}`,
       type: 'user' as const,
       action: 'created' as const,

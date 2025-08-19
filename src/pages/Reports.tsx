@@ -3,13 +3,11 @@ import {
   BarChart3,
   TrendingUp,
   PieChart,
-  Calendar,
   Download,
   Filter,
   RefreshCw,
   Activity,
   Target,
-  Users,
   Bug,
   CheckCircle,
   Clock,
@@ -18,8 +16,6 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  FileText,
-  Settings
 } from 'lucide-react';
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
@@ -193,6 +189,7 @@ const Reports: React.FC = () => {
   };
 
   const generateMonthlyTrends = (issues: Issue[]) => {
+    console.log(issues)
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
     return months.map(month => ({
       month,
@@ -202,6 +199,7 @@ const Reports: React.FC = () => {
   };
 
   const calculateTopPerformers = (issues: Issue[], users: User[]) => {
+    console.log(users)
     const userPerformance: { [key: string]: { resolved: number; total: number } } = {};
     
     issues.forEach(issue => {
@@ -541,7 +539,7 @@ const Reports: React.FC = () => {
           Monthly Trends
         </h3>
         <div className="grid grid-cols-6 gap-4">
-          {metrics.monthlyTrends.map((trend, index) => (
+          {metrics.monthlyTrends.map((trend ) => (
             <div key={trend.month} className="text-center">
               <div className="mb-2">
                 <div className="flex items-end justify-center gap-1 h-20">
@@ -618,7 +616,7 @@ const Reports: React.FC = () => {
             Project Health
           </h3>
           <div className="space-y-3">
-            {metrics.projectHealth.map((project, index) => (
+            {metrics.projectHealth.map((project) => (
               <div key={project.name} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">

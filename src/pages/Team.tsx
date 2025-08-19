@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users as UsersIcon,
-  Plus,
   Search,
-  Filter,
-  MoreHorizontal,
-  Edit3,
   Trash2,
-  Mail,
-  Calendar,
   Shield,
-  CheckCircle,
-  XCircle,
   Loader,
   AlertCircle,
   Grid3X3,
@@ -53,9 +45,11 @@ const Team: React.FC = () => {
   
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  // const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+
+  console.log(isInviteModalOpen, allIssues)
 
   useEffect(() => {
     loadTeamData();
@@ -171,26 +165,26 @@ const Team: React.FC = () => {
   };
 
   const confirmRemove = async () => {
-    // if (!removingMember) return;
+    if (!removingMember) return;
     
-    // setIsRemoving(true);
-    // try {
-    //   // In a real app, you might have a different endpoint for removing team members
-    //   // vs deleting users entirely
-    //   const response = await UserService.deleteUser(removingMember.id);
-    //   if (response.success) {
-    //     setTeamMembers(prev => prev.filter(m => m.id !== removingMember.id));
-    //     setSelectedMembers(prev => prev.filter(id => id !== removingMember.id));
-    //     setRemovingMember(null);
-    //   } else {
-    //     alert(response.message || 'Failed to remove team member');
-    //   }
-    // } catch (err: any) {
-    //   console.error('Error removing team member:', err);
-    //   alert('An error occurred while removing the team member');
-    // } finally {
-    //   setIsRemoving(false);
-    // }
+    setIsRemoving(true);
+    try {
+      // In a real app, you might have a different endpoint for removing team members
+      // vs deleting users entirely
+      // const response = await UserService.deleteUser(removingMember.id);
+      // if (response.success) {
+      //   setTeamMembers(prev => prev.filter(m => m.id !== removingMember.id));
+      //   setSelectedMembers(prev => prev.filter(id => id !== removingMember.id));
+      //   setRemovingMember(null);
+      // } else {
+      //   alert(response.message || 'Failed to remove team member');
+      // }
+    } catch (err: any) {
+      console.error('Error removing team member:', err);
+      alert('An error occurred while removing the team member');
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   const getRoleColor = (role: string) => {

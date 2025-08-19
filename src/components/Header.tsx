@@ -4,7 +4,7 @@ import { AuthService } from '../services/authService';
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
 import { UserService } from '../services/UserService';
-import { Menu, User, LogOut, Bell, Search, X, Clock, Bug, FolderOpen, MessageSquare, CheckCircle, AlertCircle, Plus, Edit3, Volume2, VolumeX } from 'lucide-react';
+import { Menu, User, LogOut, Bell, Search, X, Clock, Bug, FolderOpen, MessageSquare, AlertCircle, Volume2, VolumeX } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import type { Issue, Project, User as UserType } from '../types/interface';
 
@@ -472,7 +472,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       const now = Date.now();
       const isVeryRecent = now - activityTime < 30 * 60 * 1000; // Within last 30 minutes
       const isRecentActivity = now - activityTime < 4 * 60 * 60 * 1000; // Within last 4 hours
-      const isAssignedToUser = activity.action === 'assigned' && activity.target.type === 'issue';
+      // const isAssignedToUser = activity.action === 'assigned' && activity.target.type === 'issue';
       const isCriticalPriority = activity.metadata?.priority?.toLowerCase() === 'critical';
       const isHighPriority = activity.metadata?.priority?.toLowerCase() === 'high';
 
