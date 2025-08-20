@@ -12,8 +12,12 @@ import Projects from './pages/Projects'
 import Reports from './pages/Reports'
 import Activity from './pages/Activity'
 import Labels from './pages/Labels'
+import { useAuth } from './contexts/AuthContext'
+import { AuthLoader } from './components/AuthLoader'
 
 const App = () => {
+  const { isLoading, isAuthenticated } = useAuth();
+  
   const Redirect = ({ page = '/auth' }) => {
     const navigate = useNavigate();
 
@@ -23,6 +27,12 @@ const App = () => {
 
     return null;
   };
+
+  // Show loading screen while authentication is being initialized
+  if (isLoading) {
+    return <AuthLoader />;
+  }
+
   return (
     <Routes>
       <Route
@@ -98,18 +108,18 @@ const App = () => {
             </PrivateRoute>
           }
         />
-        <Route
-          path="/activity"
-          element={
-            <PrivateRoute>
-              <Activity />
-            </PrivateRoute>
-          }
-        />
       </Route>
+      
+      {/* Default redirect */}
+      <Route 
+        path="/" 
+        element={
+          isAuthenticated ? <Redirect page="/dashboard" /> : <Redirect page="/auth" />
+        } 
+      />
       <Route path="*" element={<Redirect />} />
     </Routes>
-)
+  );
 }
 
 export default App

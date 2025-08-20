@@ -16,6 +16,7 @@ export const OAuthButton: React.FC<OAuthButtonProps> = ({
 
   const handleOAuthLogin = () => {
     if (disabled) return;
+    console.log(`🔄 Starting OAuth login with ${provider}`);
     loginWithOAuth(provider);
   };
 
@@ -53,17 +54,6 @@ export const OAuthButton: React.FC<OAuthButtonProps> = ({
     }
   };
 
-  const getProviderName = () => {
-    switch (provider) {
-      case 'Google':
-        return 'Google';
-      case 'GitHub':
-        return 'GitHub';
-      default:
-        return provider;
-    }
-  };
-
   const baseClasses = "w-full flex items-center justify-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
   
   const variantClasses = variant === 'primary' 
@@ -77,7 +67,7 @@ export const OAuthButton: React.FC<OAuthButtonProps> = ({
       className={`${baseClasses} ${variantClasses}`}
     >
       {getProviderIcon()}
-      <span>Continue with {getProviderName()}</span>
+      <span>Continue with {provider}</span>
     </button>
   );
 };

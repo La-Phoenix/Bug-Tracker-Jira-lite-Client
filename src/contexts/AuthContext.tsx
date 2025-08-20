@@ -36,28 +36,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const initializeAuth = async () => {
     try {
-      // Check if we have OAuth callback parameters
+      console.log('🔄 Initializing authentication...');
+      
+      // Check if we have OAuth callback parameters first
       if (AuthService.hasOAuthCallback()) {
         console.log('🔄 Processing OAuth callback...');
+        
         const result = await AuthService.handleOAuthCallback();
         
         if (result.success && result.data) {
           setUser(result.data.user);
-          console.log('✅ OAuth login successful');
+          console.log('✅ OAuth login successful for:', result.data.user.email);
         } else {
           console.error('❌ OAuth login failed:', result.message);
-          // You might want to show a toast notification here
         }
       } else {
-        // Check if user is already logged in
+        // Check if user is already logged in (regular auth or previous OAuth)
         if (AuthService.isAuthenticated()) {
           const currentUser = AuthService.getCurrentUser();
-          setUser(currentUser);
+          if (currentUser) {
+            setUser(currentUser);
+            console.log('✅ User already authenticated:', currentUser.email);
+          }
         }
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error('❌ Auth initialization error:', error);
     } finally {
+      // Always set loading to false after initialization
       setIsLoading(false);
     }
   };
@@ -96,6 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const loginWithOAuth = (provider: 'Google' | 'GitHub' = 'Google') => {
+    console.log('🔄 Initiating OAuth login with:', provider);
     AuthService.initiateOAuthLogin(provider);
   };
 

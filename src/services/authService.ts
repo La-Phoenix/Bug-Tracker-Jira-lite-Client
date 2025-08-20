@@ -194,9 +194,16 @@ class AuthServiceClass {
             message: 'Failed to process authentication token'
           });
         }
+      } else {
+        // Added missing else case
+        resolve({
+          success: false,
+          message: 'No authentication token received'
+        });
       }
     });
   }
+
 
   // Check if current URL has OAuth callback parameters
   hasOAuthCallback(): boolean {
