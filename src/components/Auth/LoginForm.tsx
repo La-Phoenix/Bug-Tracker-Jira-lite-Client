@@ -79,7 +79,7 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
         </Button>
         <p className="text-center text-sm text-gray-600 mt-4">
           Don't have an account?{' '}
-          <span className="text-[#1f2630] hover:underline cursor-pointer" onClick={onToggle}>Sign up</span>
+          <span className="text-[#1f2630] dark:text-blue-400 hover:underline cursor-pointer" onClick={onToggle}>Sign up</span>
         </p>
       </form>
       <div className="mt-6">

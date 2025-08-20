@@ -65,17 +65,18 @@ class AuthServiceClass {
         };
       }
 
-      const data = await response.json();
-      console.log("login resp", data)
+      const responseData: LoginResponse = await response.json();
+      console.log("login resp", responseData)
       
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
+      if (responseData.data?.token) {
+        localStorage.setItem('token', responseData.data.token);
+        const user = {email: responseData.data.email, role: responseData.data.role, id: responseData.data.id, name: responseData.data.name || responseData.data.email.split("@")[0] }
+        localStorage.setItem('user', JSON.stringify(user));
       }
 
       return {
         success: true,
-        data: data
+        data: responseData.data
       };
     } catch (error) {
       console.error('Login error:', error);

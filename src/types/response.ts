@@ -6,7 +6,8 @@ export interface ApiResponse {
     id: string;
     email: string;
     token: string;
-    roles: string;
+    role: string;
+    name?: string;
   }
   errors?: string[];
 }
