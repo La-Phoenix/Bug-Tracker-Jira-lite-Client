@@ -139,8 +139,8 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       </div>
 
       <div className="mt-6 space-y-3">
-        <OAuthButton provider="google" />
-        <OAuthButton provider="github" />
+        <OAuthButton provider="Google" />
+        <OAuthButton provider="GitHub" />
       </div>
     </div>
     <ErrorPopup

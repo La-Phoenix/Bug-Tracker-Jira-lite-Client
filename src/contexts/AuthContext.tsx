@@ -7,7 +7,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   register: (userData: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
-  loginWithOAuth: (provider?: 'google' | 'github') => void;
+  loginWithOAuth: (provider?: 'Google' | 'GitHub') => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -95,7 +95,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const loginWithOAuth = (provider: 'google' | 'github' = 'google') => {
+  const loginWithOAuth = (provider: 'Google' | 'GitHub' = 'Google') => {
     AuthService.initiateOAuthLogin(provider);
   };
 
