@@ -20,6 +20,7 @@ import {
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
 import { UserService } from '../services/UserService';
+import { ReportsSkeleton } from '../components/ReportsSkeleton';
 import type { Issue, Project, User } from '../types/interface';
 
 interface ReportMetrics {
@@ -47,11 +48,13 @@ const Reports: React.FC = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
   
   // Filter states
   const [dateRange, setDateRange] = useState<string>('30'); // days
   const [selectedProject, setSelectedProject] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<string>('all');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   useEffect(() => {
     loadReportsData();
@@ -63,9 +66,13 @@ const Reports: React.FC = () => {
     }
   }, [allIssues, allProjects, allUsers, dateRange, selectedProject, selectedUser]);
 
-  const loadReportsData = async () => {
+  const loadReportsData = async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       setError('');
       
       const [issuesResponse, projectsResponse, usersResponse] = await Promise.all([
@@ -86,6 +93,7 @@ const Reports: React.FC = () => {
       setError('An error occurred while loading reports data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -293,33 +301,26 @@ const Reports: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <BarChart3 className="h-8 w-8 animate-pulse text-blue-600" />
-            <p className="text-slate-600 dark:text-slate-400">Generating reports...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ReportsSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            Error Loading Reports
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
-          <button
-            onClick={loadReportsData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 sm:p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Error Loading Reports
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+            <button
+              onClick={() => loadReportsData()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -328,320 +329,415 @@ const Reports: React.FC = () => {
   if (!metrics) return null;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-blue-600" />
-            Reports & Analytics
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-1">
-            Comprehensive insights into your bug tracking performance
-          </p>
-        </div>
-        <div className="flex items-center gap-3 mt-4 lg:mt-0">
-          <button
-            onClick={loadReportsData}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
-          <button
-            onClick={exportReport}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <Download className="h-4 w-4" />
-            Export Report
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-slate-400" />
-            <span className="font-medium text-slate-900 dark:text-white">Filters:</span>
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+              <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+              <span className="hidden sm:inline">Reports & Analytics</span>
+              <span className="sm:hidden">Reports</span>
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm sm:text-base">
+              <span className="hidden sm:inline">Comprehensive insights into your bug tracking performance</span>
+              <span className="sm:hidden">Performance insights</span>
+            </p>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-4">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <button
+              onClick={() => loadReportsData(true)}
+              disabled={refreshing}
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 text-sm"
             >
-              <option value="7">Last 7 days</option>
-              <option value="30">Last 30 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="365">Last year</option>
-              <option value="all">All time</option>
-            </select>
-
-            <select
-              value={selectedProject}
-              onChange={(e) => setSelectedProject(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </button>
+            <button
+              onClick={exportReport}
+              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm"
             >
-              <option value="all">All Projects</option>
-              {allProjects.map(project => (
-                <option key={project.id} value={project.id.toString()}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Export Report</span>
+              <span className="sm:hidden">Export</span>
+            </button>
+          </div>
+        </div>
 
-            <select
-              value={selectedUser}
-              onChange={(e) => setSelectedUser(e.target.value)}
-              className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+        {/* Filters */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 mb-6 sm:mb-8">
+          <div className="flex flex-col gap-4">
+            {/* Mobile Filter Toggle */}
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className="sm:hidden flex items-center justify-between p-2 border border-gray-300 dark:border-gray-600 rounded-lg"
             >
-              <option value="all">All Users</option>
-              {allUsers.map(user => (
-                <option key={user.id} value={user.id.toString()}>
-                  {user.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <Bug className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            {getTrendIcon(metrics.totalIssues, metrics.totalIssues * 0.9)}
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{metrics.totalIssues}</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Total Issues</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            {getTrendIcon(metrics.resolutionRate, metrics.resolutionRate * 0.85)}
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{Math.round(metrics.resolutionRate)}%</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Resolution Rate</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
-              <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-            </div>
-            {getTrendIcon(metrics.criticalIssues, metrics.criticalIssues + 2)}
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{metrics.criticalIssues}</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Critical Issues</p>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-              <Clock className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-            </div>
-            {getTrendIcon(3.2, 4.1)}
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{metrics.averageResolutionTime}d</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Avg Resolution Time</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Issues by Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <PieChart className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-            Issues by Status
-          </h3>
-          <div className="space-y-4">
-            {Object.entries(metrics.issuesByStatus).map(([status, count], index) => {
-              const percentage = (count / metrics.totalIssues) * 100;
-              const colors = ['bg-red-500', 'bg-amber-500', 'bg-blue-500', 'bg-emerald-500', 'bg-gray-500'];
-              return (
-                <div key={status} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`}></div>
-                    <span className="text-slate-700 dark:text-slate-300">{status}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 bg-slate-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-slate-900 dark:text-white w-8">
-                      {count}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Issues by Priority */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <Target className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-            Issues by Priority
-          </h3>
-          <div className="space-y-4">
-            {Object.entries(metrics.issuesByPriority).map(([priority, count], index) => {
-              const percentage = (count / metrics.totalIssues) * 100;
-              const colors = ['bg-blue-500', 'bg-amber-500', 'bg-orange-500', 'bg-red-500'];
-              return (
-                <div key={priority} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]}`}></div>
-                    <span className="text-slate-700 dark:text-slate-300">{priority}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 bg-slate-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium text-slate-900 dark:text-white w-8">
-                      {count}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Monthly Trends */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 mb-8">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          Monthly Trends
-        </h3>
-        <div className="grid grid-cols-6 gap-4">
-          {metrics.monthlyTrends.map((trend ) => (
-            <div key={trend.month} className="text-center">
-              <div className="mb-2">
-                <div className="flex items-end justify-center gap-1 h-20">
-                  <div 
-                    className="bg-blue-500 rounded-t w-4" 
-                    style={{ height: `${(trend.created / 25) * 100}%` }}
-                    title={`Created: ${trend.created}`}
-                  ></div>
-                  <div 
-                    className="bg-emerald-500 rounded-t w-4" 
-                    style={{ height: `${(trend.resolved / 25) * 100}%` }}
-                    title={`Resolved: ${trend.resolved}`}
-                  ></div>
-                </div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-slate-400" />
+                <span className="font-medium text-slate-900 dark:text-white">Filters</span>
               </div>
-              <div className="text-xs text-slate-600 dark:text-slate-400">{trend.month}</div>
-              <div className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                <span className="text-blue-600">{trend.created}</span> / <span className="text-emerald-600">{trend.resolved}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {dateRange !== 'all' || selectedProject !== 'all' || selectedUser !== 'all' ? 'Active' : 'None'}
+              </span>
+            </button>
+
+            {/* Desktop Filters */}
+            <div className="hidden sm:flex sm:flex-col lg:flex-row lg:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-slate-400" />
+                <span className="font-medium text-slate-900 dark:text-white">Filters:</span>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                <select
+                  value={dateRange}
+                  onChange={(e) => setDateRange(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                >
+                  <option value="7">Last 7 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                  <option value="365">Last year</option>
+                  <option value="all">All time</option>
+                </select>
+
+                <select
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                >
+                  <option value="all">All Projects</option>
+                  {allProjects.map(project => (
+                    <option key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedUser}
+                  onChange={(e) => setSelectedUser(e.target.value)}
+                  className="px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                >
+                  <option value="all">All Users</option>
+                  {allUsers.map(user => (
+                    <option key={user.id} value={user.id.toString()}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          ))}
-        </div>
-        <div className="flex justify-center gap-6 mt-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-500 rounded"></div>
-            <span className="text-slate-600 dark:text-slate-400">Created</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-emerald-500 rounded"></div>
-            <span className="text-slate-600 dark:text-slate-400">Resolved</span>
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Top Performers */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <Award className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-            Top Performers
-          </h3>
-          <div className="space-y-4">
-            {metrics.topPerformers.map((performer, index) => {
-              const resolutionRate = (performer.resolved / performer.total) * 100;
-              return (
-                <div key={performer.name} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                      {index + 1}
+            {/* Mobile Filters Expanded */}
+            {showMobileFilters && (
+              <div className="sm:hidden space-y-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Date Range
+                  </label>
+                  <select
+                    value={dateRange}
+                    onChange={(e) => setDateRange(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                  >
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                    <option value="365">Last year</option>
+                    <option value="all">All time</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Project
+                  </label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                  >
+                    <option value="all">All Projects</option>
+                    {allProjects.map(project => (
+                      <option key={project.id} value={project.id.toString()}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    User
+                  </label>
+                  <select
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                  >
+                    <option value="all">All Users</option>
+                    {allUsers.map(user => (
+                      <option key={user.id} value={user.id.toString()}>
+                        {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                <Bug className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              {getTrendIcon(metrics.totalIssues, metrics.totalIssues * 0.9)}
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{metrics.totalIssues}</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Total Issues</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
+                <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              {getTrendIcon(metrics.resolutionRate, metrics.resolutionRate * 0.85)}
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{Math.round(metrics.resolutionRate)}%</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Resolution Rate</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400" />
+              </div>
+              {getTrendIcon(metrics.criticalIssues, metrics.criticalIssues + 2)}
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{metrics.criticalIssues}</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Critical Issues</p>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="p-2 sm:p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
+                <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+              {getTrendIcon(3.2, 4.1)}
+            </div>
+            <div>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{metrics.averageResolutionTime}d</p>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">Avg Resolution Time</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
+          {/* Issues by Status */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <PieChart className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-400" />
+              Issues by Status
+            </h3>
+            <div className="space-y-3 sm:space-y-4">
+              {Object.entries(metrics.issuesByStatus).map(([status, count], index) => {
+                const percentage = (count / metrics.totalIssues) * 100;
+                const colors = ['bg-red-500', 'bg-amber-500', 'bg-blue-500', 'bg-emerald-500', 'bg-gray-500'];
+                return (
+                  <div key={status} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors[index % colors.length]} flex-shrink-0`}></div>
+                      <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 truncate">{status}</span>
                     </div>
-                    <div>
-                      <p className="font-medium text-slate-900 dark:text-white">{performer.name}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {performer.resolved} resolved of {performer.total} total
-                      </p>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <div className="w-16 sm:w-20 bg-slate-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2">
+                        <div 
+                          className={`h-1.5 sm:h-2 rounded-full ${colors[index % colors.length]}`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white w-6 sm:w-8 text-right">
+                        {count}
+                      </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                      {Math.round(resolutionRate)}%
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Issues by Priority */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <Target className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-400" />
+              Issues by Priority
+            </h3>
+            <div className="space-y-3 sm:space-y-4">
+              {Object.entries(metrics.issuesByPriority).map(([priority, count], index) => {
+                const percentage = (count / metrics.totalIssues) * 100;
+                const colors = ['bg-blue-500', 'bg-amber-500', 'bg-orange-500', 'bg-red-500'];
+                return (
+                  <div key={priority} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                      <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${colors[index % colors.length]} flex-shrink-0`}></div>
+                      <span className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 truncate">{priority}</span>
                     </div>
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      <div className="w-16 sm:w-20 bg-slate-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2">
+                        <div 
+                          className={`h-1.5 sm:h-2 rounded-full ${colors[index % colors.length]}`}
+                          style={{ width: `${percentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-slate-900 dark:text-white w-6 sm:w-8 text-right">
+                        {count}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Trends */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 mb-6 sm:mb-8">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-400" />
+            Monthly Trends
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4">
+            {metrics.monthlyTrends.map((trend) => (
+              <div key={trend.month} className="text-center">
+                <div className="mb-1 sm:mb-2">
+                  <div className="flex items-end justify-center gap-0.5 sm:gap-1 h-12 sm:h-16 lg:h-20">
+                    <div 
+                      className="bg-blue-500 rounded-t w-2 sm:w-3 lg:w-4" 
+                      style={{ height: `${(trend.created / 25) * 100}%` }}
+                      title={`Created: ${trend.created}`}
+                    ></div>
+                    <div 
+                      className="bg-emerald-500 rounded-t w-2 sm:w-3 lg:w-4" 
+                      style={{ height: `${(trend.resolved / 25) * 100}%` }}
+                      title={`Resolved: ${trend.resolved}`}
+                    ></div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Project Health */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-            Project Health
-          </h3>
-          <div className="space-y-3">
-            {metrics.projectHealth.map((project) => (
-              <div key={project.name} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-slate-900 dark:text-white truncate">{project.name}</p>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(project.priority)}`}>
-                      {project.priority}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-slate-200 dark:bg-gray-600 rounded-full h-2">
-                      <div 
-                        className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${project.completion}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 w-12">
-                      {Math.round(project.completion)}%
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {project.issues} issues
-                  </p>
+                <div className="text-xs text-slate-600 dark:text-slate-400">{trend.month}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-500 mt-0.5 sm:mt-1">
+                  <span className="text-blue-600">{trend.created}</span> / <span className="text-emerald-600">{trend.resolved}</span>
                 </div>
               </div>
             ))}
+          </div>
+          <div className="flex justify-center gap-4 sm:gap-6 mt-3 sm:mt-4 text-xs">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-500 rounded"></div>
+              <span className="text-slate-600 dark:text-slate-400">Created</span>
+            </div>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <div className="w-2 h-2 sm:w-3 sm:h-3 bg-emerald-500 rounded"></div>
+              <span className="text-slate-600 dark:text-slate-400">Resolved</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+          {/* Top Performers */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <Award className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-400" />
+              Top Performers
+            </h3>
+            <div className="space-y-3 sm:space-y-4">
+              {metrics.topPerformers.length > 0 ? (
+                metrics.topPerformers.map((performer, index) => {
+                  const resolutionRate = (performer.resolved / performer.total) * 100;
+                  return (
+                    <div key={performer.name} className="flex items-center justify-between p-2 sm:p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs sm:text-sm font-semibold flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-900 dark:text-white text-sm sm:text-base truncate">{performer.name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {performer.resolved} resolved of {performer.total} total
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                          {Math.round(resolutionRate)}%
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-6 sm:py-8">
+                  <Award className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300 dark:text-gray-600 mx-auto mb-2 sm:mb-4" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No performance data available</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Project Health */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white mb-4 sm:mb-6 flex items-center gap-2">
+              <Activity className="h-4 w-4 sm:h-5 sm:w-5 text-slate-600 dark:text-slate-400" />
+              Project Health
+            </h3>
+            <div className="space-y-2 sm:space-y-3">
+              {metrics.projectHealth.length > 0 ? (
+                metrics.projectHealth.map((project) => (
+                  <div key={project.name} className="flex items-center justify-between p-2 sm:p-3 bg-slate-50 dark:bg-gray-700 rounded-lg">
+                    <div className="flex-1 min-w-0 mr-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="font-medium text-slate-900 dark:text-white truncate text-sm sm:text-base pr-2">{project.name}</p>
+                        <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium flex-shrink-0 ${getPriorityColor(project.priority)}`}>
+                          {project.priority}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 bg-slate-200 dark:bg-gray-600 rounded-full h-1.5 sm:h-2">
+                          <div 
+                            className="bg-emerald-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
+                            style={{ width: `${project.completion}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 w-8 sm:w-12 text-right">
+                          {Math.round(project.completion)}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {project.issues} issues
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 sm:py-8">
+                  <Activity className="h-8 w-8 sm:h-12 sm:w-12 text-gray-300 dark:text-gray-600 mx-auto mb-2 sm:mb-4" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No projects available</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

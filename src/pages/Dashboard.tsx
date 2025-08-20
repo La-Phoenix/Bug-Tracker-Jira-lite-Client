@@ -16,12 +16,12 @@ import {
   Plus,
   Eye,
   User,
-  Loader
 } from 'lucide-react';
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
 import { UserService } from '../services/UserService';
 import { Link } from 'react-router-dom';
+import { DashboardSkeleton } from '../components/Skeleton';
 import type { Issue } from '../types/interface';
 
 interface DashboardStats {
@@ -143,30 +143,21 @@ const Dashboard: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center h-64">
-          <div className="flex flex-col items-center gap-4">
-            <Loader className="h-8 w-8 animate-spin text-blue-600" />
-            <p className="text-slate-600 dark:text-slate-400">Loading team...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-6 sm:p-8 text-center max-w-md w-full">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Unable to Load Dashboard
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+          <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm sm:text-base">{error}</p>
           <button
             onClick={loadDashboardData}
-            className="px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg hover:bg-slate-800 dark:hover:bg-slate-200 transition-colors"
           >
             Try Again
           </button>
@@ -180,54 +171,54 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 sm:mb-8 gap-4">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
               Dashboard
             </h1>
-            <p className="text-slate-600 dark:text-slate-400 mt-1">
+            <p className="text-slate-600 dark:text-slate-400 mt-1 text-sm sm:text-base">
               Overview of your bug tracking system
             </p>
           </div>
-          <div className="flex items-center gap-3 mt-4 lg:mt-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               onClick={loadDashboardData}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-slate-300 dark:border-gray-600 text-slate-700 dark:text-gray-300 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base"
             >
               <RefreshCw className="h-4 w-4" />
-              Refresh
+              <span className="sm:inline">Refresh</span>
             </button>
             <Link
               to="/issues"
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
             >
               <Plus className="h-4 w-4" />
-              New Issue
+              <span>New Issue</span>
             </Link>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Total Issues */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.totalIssues}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{stats.totalIssues}</p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Total Issues</p>
               </div>
-              <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                <Bug className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 sm:p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
+                <Bug className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400">
+            <div>
+              <div className="flex items-center justify-between text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-2">
                 <span>Resolution Rate</span>
                 <span className="font-medium">{Math.round(resolutionRate)}%</span>
               </div>
-              <div className="w-full bg-slate-200 dark:bg-gray-700 rounded-full h-2 mt-2">
+              <div className="w-full bg-slate-200 dark:bg-gray-700 rounded-full h-2">
                 <div 
                   className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-500"
                   style={{ width: `${resolutionRate}%` }}
@@ -237,17 +228,17 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Active Issues */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{activeIssues}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{activeIssues}</p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Active Issues</p>
               </div>
-              <div className="p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
-                <Zap className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              <div className="p-2 sm:p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg flex-shrink-0">
+                <Zap className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
-            <div className="mt-4">
+            <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 <span className="text-red-600 dark:text-red-400 font-medium">{stats.criticalIssues}</span> critical priority
               </p>
@@ -255,17 +246,17 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Resolved Issues */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.resolvedIssues}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex-1">
+                <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{stats.resolvedIssues}</p>
                 <p className="text-sm text-slate-600 dark:text-slate-400">Resolved</p>
               </div>
-              <div className="p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg">
-                <Target className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+              <div className="p-2 sm:p-3 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex-shrink-0">
+                <Target className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400" />
               </div>
             </div>
-            <div className="mt-4">
+            <div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 <span className="text-emerald-600 dark:text-emerald-400 font-medium">{stats.closedIssues}</span> closed
               </p>
@@ -273,9 +264,9 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Team Stats */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="flex-1">
                 <p className="text-sm text-slate-600 dark:text-slate-400">Team Overview</p>
               </div>
             </div>
@@ -303,21 +294,21 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Issue Status Breakdown */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 mb-8 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 mb-6 sm:mb-8 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-slate-600 dark:text-slate-400" />
               Issue Status Breakdown
             </h3>
             <Link
               to="/issues"
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium self-start sm:self-auto"
             >
               View All →
             </Link>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
             {[
               { label: 'Open', value: stats.openIssues, icon: AlertCircle, color: 'red' },
               { label: 'In Progress', value: stats.inProgressIssues, icon: Clock, color: 'amber' },
@@ -328,11 +319,11 @@ const Dashboard: React.FC = () => {
               const IconComponent = item.icon;
               return (
                 <div key={index} className="text-center">
-                  <div className={`w-16 h-16 mx-auto mb-3 bg-${item.color}-100 dark:bg-${item.color}-900/20 rounded-lg flex items-center justify-center`}>
-                    <IconComponent className={`h-6 w-6 text-${item.color}-600 dark:text-${item.color}-400`} />
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 bg-${item.color}-100 dark:bg-${item.color}-900/20 rounded-lg flex items-center justify-center`}>
+                    <IconComponent className={`h-5 w-5 sm:h-6 sm:w-6 text-${item.color}-600 dark:text-${item.color}-400`} />
                   </div>
-                  <div className="font-bold text-lg text-slate-900 dark:text-white mb-1">{item.value}</div>
-                  <div className="text-sm text-slate-600 dark:text-slate-400 mb-1">{item.label}</div>
+                  <div className="font-bold text-base sm:text-lg text-slate-900 dark:text-white mb-1">{item.value}</div>
+                  <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mb-1">{item.label}</div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">{Math.round(percentage)}%</div>
                 </div>
               );
@@ -341,18 +332,18 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Recent Issues & Quick Actions */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
           {/* Recent Issues */}
           <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 shadow-sm">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-gray-700">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                   <Activity className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                   Recent Activity
                 </h3>
                 <Link
                   to="/issues"
-                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium self-start sm:self-auto"
                 >
                   View All
                   <ArrowRight className="h-4 w-4" />
@@ -360,53 +351,53 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="divide-y divide-slate-200 dark:divide-gray-700">
+            <div className="divide-y divide-slate-200 dark:divide-gray-700 max-h-96 sm:max-h-none overflow-y-auto">
               {recentIssues.length > 0 ? (
                 recentIssues.map((issue) => (
-                  <div key={issue.id} className="p-6 hover:bg-slate-50 dark:hover:bg-gray-700/30 transition-colors group">
-                    <div className="flex items-start gap-4">
+                  <div key={issue.id} className="p-4 sm:p-6 hover:bg-slate-50 dark:hover:bg-gray-700/30 transition-colors group">
+                    <div className="flex items-start gap-3 sm:gap-4">
                       <div className="flex-shrink-0 pt-1">
                         {getStatusIcon(issue.statusName)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h4 className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                          <h4 className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-1">
                             {issue.title}
                           </h4>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(issue.priorityName)}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(issue.priorityName)} self-start sm:self-auto flex-shrink-0`}>
                             {issue.priorityName || 'Unknown'}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="flex flex-wrap items-center gap-1 sm:gap-3 text-xs text-slate-500 dark:text-slate-400">
                           <span className="font-mono">#{issue.id}</span>
-                          <span>•</span>
-                          <span>{issue.projectName || 'No Project'}</span>
-                          <span>•</span>
-                          <span>{formatDate(issue.createdAt)}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="truncate max-w-32 sm:max-w-none">{issue.projectName || 'No Project'}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="whitespace-nowrap">{formatDate(issue.createdAt)}</span>
                           {issue.assigneeName && (
                             <>
-                              <span>•</span>
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                <span>{issue.assigneeName}</span>
+                              <span className="hidden sm:inline">•</span>
+                              <div className="flex items-center gap-1 truncate">
+                                <User className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate max-w-20 sm:max-w-none">{issue.assigneeName}</span>
                               </div>
                             </>
                           )}
                         </div>
                       </div>
-                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
                         <Eye className="h-4 w-4 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400" />
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <Bug className="h-8 w-8 text-slate-400" />
+                <div className="p-8 sm:p-12 text-center">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 dark:bg-gray-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+                    <Bug className="h-6 w-6 sm:h-8 sm:w-8 text-slate-400" />
                   </div>
-                  <h4 className="text-lg font-medium text-slate-900 dark:text-white mb-2">No Issues Yet</h4>
-                  <p className="text-slate-500 dark:text-slate-400 mb-4">Get started by creating your first issue</p>
+                  <h4 className="text-base sm:text-lg font-medium text-slate-900 dark:text-white mb-2">No Issues Yet</h4>
+                  <p className="text-slate-500 dark:text-slate-400 mb-4 text-sm sm:text-base">Get started by creating your first issue</p>
                   <Link
                     to="/issues"
                     className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -420,7 +411,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-6">Quick Actions</h3>
             <div className="space-y-3">
               {[
@@ -431,18 +422,18 @@ const Dashboard: React.FC = () => {
                 <Link
                   key={index}
                   to={action.to}
-                  className="flex items-center gap-4 p-4 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group"
+                  className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg border border-slate-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group"
                 >
-                  <div className={`p-2 bg-${action.color}-100 dark:bg-${action.color}-900/20 rounded-lg group-hover:scale-105 transition-transform`}>
-                    <action.icon className={`h-5 w-5 text-${action.color}-600 dark:text-${action.color}-400`} />
+                  <div className={`p-2 bg-${action.color}-100 dark:bg-${action.color}-900/20 rounded-lg group-hover:scale-105 transition-transform flex-shrink-0`}>
+                    <action.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${action.color}-600 dark:text-${action.color}-400`} />
                   </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors text-sm sm:text-base">
                       {action.title}
                     </h4>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{action.desc}</p>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">{action.desc}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors" />
+                  <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex-shrink-0" />
                 </Link>
               ))}
             </div>
