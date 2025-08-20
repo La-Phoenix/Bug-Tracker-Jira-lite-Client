@@ -4,6 +4,7 @@ import type { User } from '../types/interface';
 
 interface AuthContextType {
   user: User | null;
+  token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
   register: (userData: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
@@ -28,11 +29,27 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  // Helper function to set authenticated state
+  const setAuthenticatedState = (userData: User, authToken: string) => {
+    setUser(userData);
+    setToken(authToken);
+    // Token is already stored in localStorage by AuthService
+    console.log('✅ User authenticated:', userData.email);
+  };
+
+  // Helper function to clear authenticated state
+  const clearAuthenticatedState = () => {
+    setUser(null);
+    setToken(null);
+    console.log('🔄 User state cleared');
+  };
 
   const initializeAuth = async () => {
     try {
@@ -45,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const result = await AuthService.handleOAuthCallback();
         
         if (result.success && result.data) {
-          setUser(result.data.user);
+          setAuthenticatedState(result.data.user, result.data.token);
           console.log('✅ OAuth login successful for:', result.data.user.email);
         } else {
           console.error('❌ OAuth login failed:', result.message);
@@ -54,8 +71,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Check if user is already logged in (regular auth or previous OAuth)
         if (AuthService.isAuthenticated()) {
           const currentUser = AuthService.getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
+          const currentToken = AuthService.getToken();
+          
+          if (currentUser && currentToken) {
+            setAuthenticatedState(currentUser, currentToken);
             console.log('✅ User already authenticated:', currentUser.email);
           }
         }
@@ -70,33 +89,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log('🔄 Attempting login for:', email);
+      
       const result = await AuthService.login(email, password);
       
       if (result.success && result.data) {
-        setUser(result.data.user);
+        setAuthenticatedState(result.data.user, result.data.token);
+        console.log('✅ Login successful for:', result.data.user.email);
         return { success: true };
       } else {
+        console.error('❌ Login failed:', result.message);
         return { success: false, message: result.message };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       return { success: false, message: 'Login failed' };
     }
   };
 
   const register = async (userData: { name: string; email: string; password: string }) => {
     try {
+      console.log('🔄 Attempting registration for:', userData.email);
+      
       const result = await AuthService.register(userData);
       
       if (result.success && result.data) {
         // Auto-login after successful registration
-        setUser(result.data.user);
+        setAuthenticatedState(result.data.user, result.data.token);
+        console.log('✅ Registration and auto-login successful for:', result.data.user.email);
         return { success: true };
       } else {
+        console.error('❌ Registration failed:', result.message);
         return { success: false, message: result.message };
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       return { success: false, message: 'Registration failed' };
     }
   };
@@ -107,18 +134,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
+    console.log('🔄 Logging out user');
     AuthService.logout();
-    setUser(null);
+    clearAuthenticatedState();
   };
+
+  // Computed property for authentication status
+  const isAuthenticated = !!user && !!token && AuthService.isAuthenticated();
 
   const value = {
     user,
+    token,
     isLoading,
     login,
     register,
     loginWithOAuth,
     logout,
-    isAuthenticated: !!user && AuthService.isAuthenticated(),
+    isAuthenticated,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

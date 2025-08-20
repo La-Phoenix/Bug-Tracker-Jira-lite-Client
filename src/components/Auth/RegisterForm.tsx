@@ -23,16 +23,16 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
   } = useAuthForm();
   
   const { error, showError, hideError } = useErrorPopup();
-  const { register, isAuthenticated, user } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Check if user is already authenticated (from OAuth or regular login)
   useEffect(() => {
-    if (isAuthenticated && user) {
-      console.log('✅ User already authenticated, redirecting to dashboard');
+    if (isAuthenticated) {
+      console.log('✅ User authenticated, redirecting to dashboard');
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +43,6 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
     setLoading(true);
 
     try {
-      // Use the AuthContext register method instead of direct API call
       const result = await register({
         name: formData.name,
         email: formData.email,
@@ -51,7 +50,8 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       });
 
       if (result.success) {
-        showError('Sign up successful! Redirecting to dashboard...', 'Sign Up Success', 'info');
+        showError('Registration successful! Redirecting to dashboard...', 'Registration Success', 'info');
+        // Navigation will be handled by the useEffect above
         setTimeout(() => {
           navigate('/dashboard', { replace: true });
         }, 1500);
@@ -65,11 +65,11 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       setLoading(false);
     }
   }
-
+  
   return (
     <>
       <form onSubmit={handleSubmit} className="animate-fade-in">
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200 mb-6">Create Account</h2>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create Account</h2>
 
         <InputField 
           id="name" 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { InputField } from './InputField';
 // import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
@@ -21,41 +21,49 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     clearErrors,
     loading,
     setLoading,
+    validateForm
     // setErrors
   } = useAuthForm();
 
   const { error, showError, hideError } = useErrorPopup();
-  const { login } = useAuth(); // Use the login from AuthContext
+  const { login, isAuthenticated } = useAuth(); // Use the login from AuthContext
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('✅ User authenticated, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     clearErrors();
+
+    if (!validateForm()) return;
 
     setLoading(true);
 
     try {
-      await login(
-        formData.email,
-        formData.password
-      );
+      const result = await login(formData.email, formData.password);
 
-      showError('Login successful! Redirecting to dashboard...', 'Login Success', 'info');
-      setTimeout(() => {
-        navigate('/dashboard', { replace: true });
-      }, 2000);
-    } catch (err: any) {
-      if (typeof err === 'object' && err.errors) {
-        const newMessage = Array.isArray(err.errors) ? err.errors.join(' ') : err.message;
-        showError(newMessage, 'Login Error');
+      if (result.success) {
+        showError('Login successful! Redirecting to dashboard...', 'Login Success', 'info');
+        // Navigation will be handled by the useEffect above
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1500);
       } else {
-        showError(err.message || 'An unexpected error occurred', 'Login Error');
+        showError(result.message || 'Login failed', 'Login Error');
       }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      showError(err.message || 'An unexpected error occurred', 'Login Error');
     } finally {
       setLoading(false);
     }
   }
-
   return (
     <>
       <form onSubmit={handleSubmit} className="animate-fade-in">
