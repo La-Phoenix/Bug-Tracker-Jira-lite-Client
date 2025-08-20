@@ -1,4 +1,5 @@
 import type { User } from "../types/interface";
+import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from "../utils/constants";
 
 
 export interface LoginResponse {
@@ -20,8 +21,6 @@ export interface RegisterResponse {
 }
 
 class AuthServiceClass {
-  private readonly baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  private readonly frontendURL = import.meta.env.VITE_FRONTEND_URL || 'http://localhost:5173';
 
   // Get auth headers for API requests
   getAuthHeaders(): Record<string, string> {
@@ -40,7 +39,7 @@ class AuthServiceClass {
   // Regular login
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/login`, {
+      const response = await fetch(`${API_SERVER_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -79,7 +78,7 @@ class AuthServiceClass {
   // Regular register
   async register(userData: { name: string; email: string; password: string }): Promise<RegisterResponse> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/register`, {
+      const response = await fetch(`${API_SERVER_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -118,8 +117,8 @@ class AuthServiceClass {
 
   // OAuth login - redirect to backend OAuth endpoint
   initiateOAuthLogin(provider: 'google' | 'github' = 'google'): void {
-    const returnUrl = encodeURIComponent(this.frontendURL);
-    const oauthUrl = `${this.baseURL}/api/auth/external/${provider}?returnUrl=${returnUrl}`;
+    const returnUrl = encodeURIComponent(API_CLIENT_BASE_URL);
+    const oauthUrl = `${API_SERVER_BASE_URL}/api/auth/external/${provider}?returnUrl=${returnUrl}`;
     
     console.log('🔄 Initiating OAuth login:', oauthUrl);
     window.location.href = oauthUrl;
