@@ -91,21 +91,6 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       <form onSubmit={handleSubmit} className="animate-fade-in">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create Account</h2>
 
-      {/* <div className="space-y-3 mb-6">
-        <SocialButton provider="google" onClick={() => {
-          window.location.href = `${API_SERVER_BASE_URL}/auth/external/Google?returnUrl=${API_CLIENT_BASE_URL}`;
-        }} />
-        <SocialButton provider="github" onClick={() => {
-          window.location.href = `${API_SERVER_BASE_URL}/auth/external/GitHub?returnUrl=${API_CLIENT_BASE_URL}`;
-        }} />
-      </div> */}
-
-      <div className="flex items-center justify-center my-4">
-        <div className="flex-grow border-t border-gray-300"></div>
-        <span className="mx-4 text-sm text-gray-500">or create with email</span>
-        <div className="flex-grow border-t border-gray-300"></div>
-      </div>
-
       <InputField id="name" label="Full Name" type="text" value={formData.name} onChange={handleChange} error={errors.name} />
       <InputField id="email" label="Email Address" type="email" value={formData.email} onChange={handleChange} error={errors.email} />
       <InputField id="password" label="Password" type="password" value={formData.password} onChange={handleChange} error={errors.password} />
@@ -147,7 +132,7 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
           <div className="w-full border-t border-gray-300 dark:border-gray-600" />
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+          <span className="px-2 bg-white text-gray-500 dark:text-gray-400">
             Or sign up with
           </span>
         </div>
