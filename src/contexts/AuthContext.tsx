@@ -62,8 +62,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const result = await AuthService.handleOAuthCallback();
         
         if (result.success && result.data) {
-          setAuthenticatedState(result.data.user, result.data.token);
-          console.log('✅ OAuth login successful for:', result.data.user.email);
+          const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] };
+          setAuthenticatedState(user, result.data.token);
+          console.log('✅ OAuth login successful for:', result.data.email);
         } else {
           console.error('❌ OAuth login failed:', result.message);
         }
@@ -94,8 +95,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await AuthService.login(email, password);
       
       if (result.success && result.data) {
-        setAuthenticatedState(result.data.user, result.data.token);
-        console.log('✅ Login successful for:', result.data.user.email);
+        const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] };
+        setAuthenticatedState(user, result.data.token);
+        console.log('✅ Login successful for:', result.data.email);
         return { success: true };
       } else {
         console.error('❌ Login failed:', result.message);
@@ -115,8 +117,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (result.success && result.data) {
         // Auto-login after successful registration
-        setAuthenticatedState(result.data.user, result.data.token);
-        console.log('✅ Registration and auto-login successful for:', result.data.user.email);
+        const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] }
+        setAuthenticatedState(user, result.data.token);
+        console.log('✅ Registration and auto-login successful for:', result.data.email);
         return { success: true };
       } else {
         console.error('❌ Registration failed:', result.message);

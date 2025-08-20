@@ -7,7 +7,10 @@ export interface LoginResponse {
   success: boolean;
   data?: {
     token: string;
-    user: User;
+    email: string;
+    role: "User" | "Admin" | undefined;
+    id: number;
+    name?: string;
   };
   message?: string;
   error?: string;
@@ -16,8 +19,11 @@ export interface LoginResponse {
 export interface RegisterResponse {
   success: boolean;
   data?: {
+    id: number;
     token: string;
-    user: User;
+    email: string;
+    role: "User" | "Admin" | undefined;
+    name?: string;
   };
   message?: string;
   error?: string;
@@ -60,6 +66,7 @@ class AuthServiceClass {
       }
 
       const data = await response.json();
+      console.log("login resp", data)
       
       if (data.token) {
         localStorage.setItem('token', data.token);
@@ -190,7 +197,7 @@ class AuthServiceClass {
           
           resolve({
             success: true,
-            data: { token, user }
+            data: { token, ...user  }
           });
         } catch (error) {
           console.error('Error processing OAuth token:', error);
