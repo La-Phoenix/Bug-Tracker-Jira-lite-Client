@@ -1,4 +1,5 @@
 import type { User } from "../types/interface";
+import type { ApiResponse } from "../types/response";
 import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from "../utils/constants";
 
 
@@ -9,6 +10,7 @@ export interface LoginResponse {
     user: User;
   };
   message?: string;
+  error?: string;
 }
 
 export interface RegisterResponse {
@@ -18,6 +20,7 @@ export interface RegisterResponse {
     user: User;
   };
   message?: string;
+  error?: string;
 }
 
 class AuthServiceClass {
@@ -48,10 +51,11 @@ class AuthServiceClass {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Login failed' }));
+        const errorData: ApiResponse = await response.json().catch(() => ({ message: 'Login failed' }));
         return {
           success: false,
-          message: errorData.message || 'Login failed'
+          message: errorData.message || 'Login failed',
+          error: errorData.errors?.map(e => e).join(" ")
         };
       }
 
@@ -87,10 +91,11 @@ class AuthServiceClass {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Registration failed' }));
+        const errorData: ApiResponse = await response.json().catch(() => ({ message: 'Registration failed' }));
         return {
           success: false,
-          message: errorData.message || 'Registration failed'
+          message: errorData.message || 'Registration failed',
+          error: errorData.errors?.map(e => e).join(" ")
         };
       }
 

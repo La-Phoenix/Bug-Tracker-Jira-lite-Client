@@ -56,7 +56,7 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
           navigate('/dashboard', { replace: true });
         }, 1500);
       } else {
-        showError(result.message || 'Registration failed', 'Registration Error');
+        showError(result.error|| result.message || 'Registration failed', 'Registration Error');
       }
     } catch (err: any) {
       console.error('Registration error:', err);

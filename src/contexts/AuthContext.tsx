@@ -6,8 +6,8 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  register: (userData: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string, error?: string; }>;
+  register: (userData: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string, error?: string }>;
   loginWithOAuth: (provider?: 'Google' | 'GitHub') => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -99,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: true };
       } else {
         console.error('❌ Login failed:', result.message);
-        return { success: false, message: result.message };
+        return { success: false, message: result.message, error: result.error };
       }
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -120,7 +120,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return { success: true };
       } else {
         console.error('❌ Registration failed:', result.message);
-        return { success: false, message: result.message };
+        return { success: false, message: result.message, error: result.error };
       }
     } catch (error) {
       console.error('❌ Registration error:', error);

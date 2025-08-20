@@ -21,7 +21,6 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     clearErrors,
     loading,
     setLoading,
-    validateForm
     // setErrors
   } = useAuthForm();
 
@@ -41,8 +40,6 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     e.preventDefault();
     clearErrors();
 
-    if (!validateForm()) return;
-
     setLoading(true);
 
     try {
@@ -55,7 +52,7 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
           navigate('/dashboard', { replace: true });
         }, 1500);
       } else {
-        showError(result.message || 'Login failed', 'Login Error');
+        showError(result.error|| result.message || 'Login failed', 'Login Error');
       }
     } catch (err: any) {
       console.error('Login error:', err);
