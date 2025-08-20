@@ -167,11 +167,13 @@ class AuthServiceClass {
         try {
           // Decode JWT to get user info
           const payload = JSON.parse(atob(token.split('.')[1]));
+          console.log('🔍 JWT Payload:', payload);
+          
           const user = {
-            id: parseInt(payload.sub),
-            name: payload.name || payload.email,
+            id: parseInt(payload.sub || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']),
+            name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name || payload.email,
             email: payload.email,
-            role: payload.role || 'User',
+            role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role || 'User',
             createdAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
@@ -192,11 +194,6 @@ class AuthServiceClass {
             message: 'Failed to process authentication token'
           });
         }
-      } else {
-        resolve({
-          success: false,
-          message: 'No authentication token received'
-        });
       }
     });
   }
