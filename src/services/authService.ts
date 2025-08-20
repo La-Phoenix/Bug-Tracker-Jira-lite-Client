@@ -118,7 +118,7 @@ class AuthServiceClass {
   // OAuth login - redirect to backend OAuth endpoint
   initiateOAuthLogin(provider: 'google' | 'github' = 'google'): void {
     const returnUrl = encodeURIComponent(API_CLIENT_BASE_URL);
-    const oauthUrl = `${API_SERVER_BASE_URL}/api/auth/external/${provider}?returnUrl=${returnUrl}`;
+    const oauthUrl = `${API_SERVER_BASE_URL}/auth/external/${provider}?returnUrl=${returnUrl}`;
     
     console.log('🔄 Initiating OAuth login:', oauthUrl);
     window.location.href = oauthUrl;
