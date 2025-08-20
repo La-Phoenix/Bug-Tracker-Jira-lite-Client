@@ -1,12 +1,13 @@
 import React from 'react';
 import { InputField } from './InputField';
-import { SocialButton } from './SocialButton';
+// import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
-import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
+// import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
 import { useNavigate } from 'react-router-dom';
 import { ErrorPopup, useErrorPopup } from '../PopUp';
 import { Button } from '../Button';
 import { useAuth } from '../../contexts/AuthContext';
+import { OAuthButton } from '../OAuthButton';
 
 type LoginFormProps = {
   onToggle: () => void;
@@ -34,15 +35,15 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     setLoading(true);
 
     try {
-      await login({
-        email: formData.email,
-        password: formData.password
-      });
+      await login(
+        formData.email,
+        formData.password
+      );
 
       showError('Login successful! Redirecting to dashboard...', 'Login Success', 'info');
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
-      }, 1500);
+      }, 2000);
     } catch (err: any) {
       if (typeof err === 'object' && err.errors) {
         const newMessage = Array.isArray(err.errors) ? err.errors.join(' ') : err.message;
@@ -59,14 +60,14 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     <>
       <form onSubmit={handleSubmit} className="animate-fade-in">
         <h2 className="text-2xl font-semibold text-gray-800 mb-6">Welcome Back</h2>
-        <div className="space-y-3 mb-6">
+        {/* <div className="space-y-3 mb-6">
           <SocialButton provider="google" onClick={() => {
             window.location.href = `${API_SERVER_BASE_URL}/auth/external/Google?returnUrl=${API_CLIENT_BASE_URL}`;
           }} />
           <SocialButton provider="github" onClick={() => {
             window.location.href = `${API_SERVER_BASE_URL}/auth/external/GitHub?returnUrl=${API_CLIENT_BASE_URL}`;
           }} />
-        </div>
+        </div> */}
         <div className="flex items-center justify-center my-4">
           <div className="flex-grow border-t border-gray-300"></div>
           <span className="mx-4 text-sm text-gray-500">or sign in with email</span>
@@ -89,6 +90,23 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
           <span className="text-[#1f2630] hover:underline cursor-pointer" onClick={onToggle}>Sign up</span>
         </p>
       </form>
+      <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <OAuthButton provider="google" />
+              <OAuthButton provider="github" />
+            </div>
+          </div>
       <ErrorPopup
         isOpen={error.isOpen}
         onClose={hideError}

@@ -1,13 +1,14 @@
 import React from 'react';
 import { InputField } from './InputField';
-import { SocialButton } from './SocialButton';
+// import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
 import { useNavigate } from 'react-router-dom';
-import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
+// import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
 import type { ApiResponse } from '../../types/response';
 import { ErrorPopup, useErrorPopup } from '../PopUp';
 import { Button } from '../Button';
-import { useAuth } from '../../contexts/AuthContext';
+import { OAuthButton } from '../OAuthButton';
+import { API_SERVER_BASE_URL } from '../../utils/constants';
 
 type RegisterFormProps = {
   onToggle: () => void;
@@ -28,7 +29,6 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
   const { error, showError, hideError } = useErrorPopup();
 
   const navigate = useNavigate();
-  const { setIsAuthenticated } = useAuth();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,9 +73,8 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       localStorage.setItem('userEmail', result.data?.email || '');
       showError('Sign up successful! Redirecting to dashboard...', 'Sign Up Success', 'info');
       setTimeout(() => {
-        setIsAuthenticated(true);
         navigate('/dashboard', { replace: true });
-      }, 3000);
+      }, 2000);
     } catch (err: any) {
        if (typeof err === 'object') {
           setErrors(err);
@@ -92,14 +91,14 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
       <form onSubmit={handleSubmit} className="animate-fade-in">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Create Account</h2>
 
-      <div className="space-y-3 mb-6">
+      {/* <div className="space-y-3 mb-6">
         <SocialButton provider="google" onClick={() => {
           window.location.href = `${API_SERVER_BASE_URL}/auth/external/Google?returnUrl=${API_CLIENT_BASE_URL}`;
         }} />
         <SocialButton provider="github" onClick={() => {
           window.location.href = `${API_SERVER_BASE_URL}/auth/external/GitHub?returnUrl=${API_CLIENT_BASE_URL}`;
         }} />
-      </div>
+      </div> */}
 
       <div className="flex items-center justify-center my-4">
         <div className="flex-grow border-t border-gray-300"></div>
@@ -142,6 +141,23 @@ export const RegisterForm = ({ onToggle }: RegisterFormProps) => {
         <span className="text-[#1f2630] hover:underline cursor-pointer" onClick={onToggle}>Sign in</span>
       </p>
     </form>
+    <div className="mt-6">
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-300 dark:border-gray-600" />
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400">
+            Or sign up with
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <OAuthButton provider="google" />
+        <OAuthButton provider="github" />
+      </div>
+    </div>
     <ErrorPopup
         isOpen={error.isOpen}
         onClose={hideError}

@@ -1,109 +1,118 @@
-import { createContext, useState, useEffect, type ReactNode, useContext } from 'react';
-import type { LoginRequest, User } from '../types/interface';
+import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { AuthService } from '../services/authService';
+import type { User } from '../types/interface';
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  setIsAuthenticated: (auth: boolean) => void;
-  login: (credentials: LoginRequest) => Promise<void>;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  register: (userData: { name: string; email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
+  loginWithOAuth: (provider?: 'google' | 'github') => void;
   logout: () => void;
-  loading: boolean;
+  isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  isAuthenticated: false,
-  setIsAuthenticated: () => {},
-  login: async() => {},
-  loading: true,
-  logout: () => {},
-  user: null
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return !!AuthService.getToken();
-  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on app start
-    const storedUser = AuthService.getUser();
-    const token = AuthService.getToken();
-    
-    if (storedUser && token) {
-      setUser(storedUser);
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
-    setLoading(false);
+    initializeAuth();
   }, []);
 
-  const login = async (credentials: LoginRequest) => {
+  const initializeAuth = async () => {
     try {
-      const response = await AuthService.login(credentials);
-      console.log(response.data)
-      console.log(response.data.email)
-      if (response.success && response.data) {
-        const userData: User = {
-          email: response.data.email,
-          id: response.data.id,
-          name: response.data.email.split('@')[0] // Use email username as name fallback
-        };
-        setUser(userData);
-        setIsAuthenticated(true);
+      // Check if we have OAuth callback parameters
+      if (AuthService.hasOAuthCallback()) {
+        console.log('🔄 Processing OAuth callback...');
+        const result = await AuthService.handleOAuthCallback();
+        
+        if (result.success && result.data) {
+          setUser(result.data.user);
+          console.log('✅ OAuth login successful');
+        } else {
+          console.error('❌ OAuth login failed:', result.message);
+          // You might want to show a toast notification here
+        }
       } else {
+        // Check if user is already logged in
+        if (AuthService.isAuthenticated()) {
+          const currentUser = AuthService.getCurrentUser();
+          setUser(currentUser);
+        }
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        console.log(response)
-        throw new Error(response.message || 'Login failed');
+  const login = async (email: string, password: string) => {
+    try {
+      const result = await AuthService.login(email, password);
+      
+      if (result.success && result.data) {
+        setUser(result.data.user);
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
       }
     } catch (error) {
       console.error('Login error:', error);
-      throw error;
+      return { success: false, message: 'Login failed' };
     }
+  };
+
+  const register = async (userData: { name: string; email: string; password: string }) => {
+    try {
+      const result = await AuthService.register(userData);
+      
+      if (result.success && result.data) {
+        // Auto-login after successful registration
+        setUser(result.data.user);
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { success: false, message: 'Registration failed' };
+    }
+  };
+
+  const loginWithOAuth = (provider: 'google' | 'github' = 'google') => {
+    AuthService.initiateOAuthLogin(provider);
   };
 
   const logout = () => {
     AuthService.logout();
     setUser(null);
-    setIsAuthenticated(false);
   };
-
-  // Listen to localStorage changes from other tabs/windows
-  useEffect(() => {
-    const onStorage = () => {
-      const token = AuthService.getToken();
-      const storedUser = AuthService.getUser();
-      
-      if (token && storedUser) {
-        setUser(storedUser);
-        setIsAuthenticated(true);
-      } else {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-    };
-    
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
 
   const value = {
     user,
-    isAuthenticated,
-    setIsAuthenticated,
+    isLoading,
     login,
+    register,
+    loginWithOAuth,
     logout,
-    loading,
+    isAuthenticated: !!user && AuthService.isAuthenticated(),
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
