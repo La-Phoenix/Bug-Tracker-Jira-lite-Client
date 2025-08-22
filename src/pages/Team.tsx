@@ -23,15 +23,20 @@ import { UserService } from '../services/UserService';
 import { IssueService } from '../services/IssueServices';
 import { TeamSkeleton } from '../components/TeamSkeleton';
 import type { User as UserType, Issue } from '../types/interface';
+import { useAuth } from '../contexts/AuthContext';
 
 interface TeamMember extends UserType {
+  userName?: string;
+  userRole?: "Admin" | "User";
   activeIssues?: number;
   resolvedIssues?: number;
   lastActive?: string;
+  userEmail?: string;
   performance?: 'excellent' | 'good' | 'average' | 'needs-attention';
 }
 
 const Team: React.FC = () => {
+  const {user} = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
   const [allIssues, setAllIssues] = useState<Issue[]>([]);
@@ -69,14 +74,16 @@ const Team: React.FC = () => {
       setError('');
       
       const [usersResponse, issuesResponse] = await Promise.all([
-        UserService.getAllUsers(),
-        IssueService.getAllIssues()
+        UserService.getTeamMembers(),
+        IssueService.getUserProjectsIssues()
       ]);
 
       if (usersResponse.success && usersResponse.data) {
         const issues = issuesResponse.success ? issuesResponse.data || [] : [];
         setAllIssues(issues);
         
+        console.log("Team:", usersResponse)
+        console.log("Issues:", issuesResponse)
         // Enhance users with performance data
         const enhancedMembers: any[] = usersResponse.data.map(user => {
           const userIssues = issues.filter(issue => issue.assigneeId === user.id);
@@ -107,6 +114,7 @@ const Team: React.FC = () => {
             performance
           };
         });
+        console.log("enhanced team members:", enhancedMembers)
 
         setTeamMembers(enhancedMembers);
       } else {
@@ -125,16 +133,17 @@ const Team: React.FC = () => {
 
     // Search filter
     if (searchTerm) {
+      console.log("filtered",filtered)
       filtered = filtered.filter(member =>
-        member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase())
+        (member.name || member.userName)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (member.email || member.userEmail)?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Role filter
     if (roleFilter !== 'all') {
       filtered = filtered.filter(member => 
-        member.role?.toLowerCase() === roleFilter.toLowerCase()
+        member.userRole?.toLowerCase() === roleFilter.toLowerCase()
       );
     }
 
@@ -186,6 +195,7 @@ const Team: React.FC = () => {
   };
 
   const getRoleColor = (role: string) => {
+    console.log("role:", role)
     switch (role?.toLowerCase()) {
       case 'admin':
         return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
@@ -259,8 +269,8 @@ const Team: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  const getInitials = (name?: string) => {
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
   // Action buttons component
@@ -275,13 +285,17 @@ const Team: React.FC = () => {
       <button className="p-1.5 sm:p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors" title="Send email">
         <Mail className="h-4 w-4" />
       </button>
-      <button 
-        onClick={() => handleRemoveMember(member)}
-        className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" 
-        title="Remove member"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {
+        user?.role === "Admin" && (
+          <button 
+            onClick={() => handleRemoveMember(member)}
+            className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" 
+            title="Remove member"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )
+      }
     </div>
   );
 
@@ -330,15 +344,19 @@ const Team: React.FC = () => {
               Manage your development team and track performance
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setIsInviteModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
-            >
-              <UserPlus className="h-4 w-4" />
-              <span>Invite Member</span>
-            </button>
-          </div>
+          {
+            user?.role === "Admin" && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setIsInviteModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>Invite Member</span>
+                </button>
+              </div>
+            )
+          }
         </div>
 
         {/* Team Stats */}
@@ -414,7 +432,7 @@ const Team: React.FC = () => {
               {/* Mobile Filter Toggle */}
               <button
                 onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className="flex lg:hidden items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex lg:hidden text-white items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <Filter className="h-4 w-4" />
                 Filters
@@ -592,11 +610,11 @@ const Team: React.FC = () => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
-                      {getInitials(member.name)}
+                      {getInitials(member.name || member.userName)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
-                        {member.name}
+                        {member.name || member.userName}
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
                         {member.email}
@@ -625,9 +643,9 @@ const Team: React.FC = () => {
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Role:</span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.role as string)}`}>
-                      {getRoleIcon(member.role as string)}
-                      <span className="hidden sm:inline">{member.role || 'Member'}</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.userRole as string)}`}>
+                      {getRoleIcon(member.userRole as string)}
+                      <span className="hidden sm:inline">{member.userRole || 'Member'}</span>
                     </span>
                   </div>
 
@@ -662,12 +680,16 @@ const Team: React.FC = () => {
                     <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden sm:inline">Email</span>
                   </button>
-                  <button
-                    onClick={() => handleRemoveMember(member)}
-                    className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 transition-colors"
-                  >
-                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </button>
+                  {
+                    user?.role === "Admin" && (
+                      <button
+                        onClick={() => handleRemoveMember(member)}
+                        className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 transition-colors"
+                      >
+                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </button>
+                    )
+                  }
                 </div>
               </div>
             ))}
@@ -711,11 +733,11 @@ const Team: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                            {getInitials(member.name)}
+                            {getInitials(member.name || member.userName)}
                           </div>
                           <div className="flex-1">
                             <h3 className="text-base font-medium text-gray-900 dark:text-white line-clamp-1">
-                              {member.name}
+                              {member.name || member.userName}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                               {member.email}
@@ -724,9 +746,9 @@ const Team: React.FC = () => {
                         </div>
                         
                         <div className="flex items-center gap-2 mb-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.role as string)}`}>
-                            {getRoleIcon(member.role as string)}
-                            {member.role || 'Member'}
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.userRole as string)}`}>
+                            {getRoleIcon(member.userRole as string)}
+                            {member.userRole || 'Member'}
                           </span>
                           <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPerformanceColor(member.performance || 'average')}`}>
                             {getPerformanceIcon(member.performance || 'average')}
@@ -763,11 +785,11 @@ const Team: React.FC = () => {
                       {/* Member */}
                       <div className="col-span-3 flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                          {getInitials(member.name)}
+                          {getInitials(member.name || member.userName)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {member.name}
+                            {member.name || member.userName}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                             {member.email}
@@ -778,8 +800,8 @@ const Team: React.FC = () => {
                       {/* Role */}
                       <div className="col-span-2">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.role as string)}`}>
-                          {getRoleIcon(member.role as string)}
-                          {member.role || 'Member'}
+                          {getRoleIcon(member.userRole as string)}
+                          {member.userRole || 'Member'}
                         </span>
                       </div>
 
@@ -861,7 +883,7 @@ const Team: React.FC = () => {
                 </div>
 
                 <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm sm:text-base">
-                  Are you sure you want to remove <strong>{removingMember.name}</strong> from the team? 
+                  Are you sure you want to remove <strong>{removingMember.name || removingMember.userName}</strong> from the team? 
                   They will lose access to team projects and issues.
                 </p>
 

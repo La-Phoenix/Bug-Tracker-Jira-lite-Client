@@ -76,7 +76,7 @@ const Reports: React.FC = () => {
       setError('');
       
       const [issuesResponse, projectsResponse, usersResponse] = await Promise.all([
-        IssueService.getAllIssues(),
+        IssueService.getUserProjectsIssues(),
         ProjectService.getAllProjects().catch(() => ({ success: false, data: [] })),
         UserService.getAllUsers().catch(() => ({ success: false, data: [] }))
       ]);

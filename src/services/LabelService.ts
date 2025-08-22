@@ -1,168 +1,349 @@
+import { API_SERVER_BASE_URL } from "../utils/constants";
+import { AuthService } from "./authService";
 import type { Label } from '../types/interface';
 
 interface ApiResponse<T> {
   success: boolean;
   data?: T;
   message?: string;
+  statusCode?: number;
 }
 
-// Mock labels data
-const mockLabels: Label[] = [
-  {
-    id: 1,
-    name: 'Bug',
-    color: '#dc2626',
-    description: 'Something is not working correctly',
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-20T14:30:00Z'
-  },
-  {
-    id: 2,
-    name: 'Feature Request',
-    color: '#059669',
-    description: 'New functionality or enhancement',
-    createdAt: '2024-01-16T09:15:00Z',
-    updatedAt: '2024-01-22T11:45:00Z'
-  },
-  {
-    id: 3,
-    name: 'Documentation',
-    color: '#2563eb',
-    description: 'Improvements or additions to documentation',
-    createdAt: '2024-01-17T13:20:00Z',
-    updatedAt: '2024-01-18T16:10:00Z'
-  },
-  {
-    id: 4,
-    name: 'High Priority',
-    color: '#dc2626',
-    description: 'Issues that need immediate attention',
-    createdAt: '2024-01-18T08:30:00Z',
-    updatedAt: '2024-01-25T12:00:00Z'
-  },
-  {
-    id: 5,
-    name: 'Low Priority',
-    color: '#6b7280',
-    description: 'Nice to have improvements',
-    createdAt: '2024-01-19T15:45:00Z',
-    updatedAt: '2024-01-19T15:45:00Z'
-  },
-  {
-    id: 6,
-    name: 'UI/UX',
-    color: '#7c3aed',
-    description: 'User interface and experience related',
-    createdAt: '2024-01-20T10:20:00Z',
-    updatedAt: '2024-01-23T09:15:00Z'
-  },
-  {
-    id: 7,
-    name: 'Backend',
-    color: '#059669',
-    description: 'Server-side and API related issues',
-    createdAt: '2024-01-21T14:10:00Z',
-    updatedAt: '2024-01-24T17:30:00Z'
-  },
-  {
-    id: 8,
-    name: 'Testing',
-    color: '#ea580c',
-    description: 'Testing and quality assurance',
-    createdAt: '2024-01-22T11:00:00Z',
-    updatedAt: '2024-01-22T11:00:00Z'
+export class LabelService {
+  private static handleAuthError() {
+    AuthService.logout();
+    window.location.href = '/auth';
   }
-];
 
-export const LabelService = {
-  getAllLabels: async (): Promise<ApiResponse<Label[]>> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    return {
-      success: true,
-      data: mockLabels,
-      message: 'Labels fetched successfully'
-    };
-  },
+  // GET /api/labels - Get all labels
+  static async getAllLabels(): Promise<ApiResponse<Label[]>> {
+    try {
+      console.log('🔄 Fetching all labels...');
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/labels`, {
+        method: 'GET',
+        headers: AuthService.getAuthHeaders(),
+      });
 
-  getLabelById: async (id: number): Promise<ApiResponse<Label>> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const label = mockLabels.find(l => l.id === id);
-    if (!label) {
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Labels fetched successfully:', result.data?.length || 0, 'labels');
+
+      return {
+        success: result.success,
+        data: result.data,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error fetching labels:', error);
       return {
         success: false,
-        message: 'Label not found'
+        message: 'Failed to fetch labels'
       };
     }
-
-    return {
-      success: true,
-      data: label,
-      message: 'Label fetched successfully'
-    };
-  },
-
-  createLabel: async (labelData: Omit<Label, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Label>> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newLabel: Label = {
-      ...labelData,
-      id: Math.max(...mockLabels.map(l => l.id)) + 1,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    mockLabels.push(newLabel);
-
-    return {
-      success: true,
-      data: newLabel,
-      message: 'Label created successfully'
-    };
-  },
-
-  updateLabel: async (id: number, labelData: Partial<Omit<Label, 'id' | 'createdAt'>>): Promise<ApiResponse<Label>> => {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const labelIndex = mockLabels.findIndex(l => l.id === id);
-    if (labelIndex === -1) {
-      return {
-        success: false,
-        message: 'Label not found'
-      };
-    }
-
-    mockLabels[labelIndex] = {
-      ...mockLabels[labelIndex],
-      ...labelData,
-      updatedAt: new Date().toISOString()
-    };
-
-    return {
-      success: true,
-      data: mockLabels[labelIndex],
-      message: 'Label updated successfully'
-    };
-  },
-
-  deleteLabel: async (id: number): Promise<ApiResponse<void>> => {
-    await new Promise(resolve => setTimeout(resolve, 600));
-    
-    const labelIndex = mockLabels.findIndex(l => l.id === id);
-    if (labelIndex === -1) {
-      return {
-        success: false,
-        message: 'Label not found'
-      };
-    }
-
-    mockLabels.splice(labelIndex, 1);
-
-    return {
-      success: true,
-      message: 'Label deleted successfully'
-    };
   }
-};
+
+  // GET /api/labels/:id - Get label by ID
+  static async getLabelById(id: number): Promise<ApiResponse<Label>> {
+    try {
+      console.log('🔄 Fetching label by ID:', id);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/labels/${id}`, {
+        method: 'GET',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Label not found' };
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Label fetched successfully:', result.data?.name);
+
+      return {
+        success: result.success,
+        data: result.data,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error fetching label:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch label'
+      };
+    }
+  }
+
+  // POST /api/labels - Create new label (Admin only)
+  static async createLabel(labelData: { name: string; color: string }): Promise<ApiResponse<Label>> {
+    try {
+      console.log('🔄 Creating label:', labelData.name);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/labels`, {
+        method: 'POST',
+        headers: AuthService.getAuthHeaders(),
+        body: JSON.stringify(labelData),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 403) {
+          return { success: false, message: 'Admin access required' };
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errorData.message || 'Failed to create label'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Label created successfully:', result.data?.name);
+
+      return {
+        success: result.success,
+        data: result.data,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error creating label:', error);
+      return {
+        success: false,
+        message: 'Failed to create label'
+      };
+    }
+  }
+
+  // PUT /api/labels/:id - Update label (Admin only)
+  static async updateLabel(id: number, labelData: { name?: string; color?: string }): Promise<ApiResponse<Label>> {
+    try {
+      console.log('🔄 Updating label ID:', id, labelData);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/labels/${id}`, {
+        method: 'PUT',
+        headers: AuthService.getAuthHeaders(),
+        body: JSON.stringify(labelData),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 403) {
+          return { success: false, message: 'Admin access required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Label not found' };
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errorData.message || 'Failed to update label'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Label updated successfully:', result.data?.name);
+
+      return {
+        success: result.success,
+        data: result.data,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error updating label:', error);
+      return {
+        success: false,
+        message: 'Failed to update label'
+      };
+    }
+  }
+
+  // DELETE /api/labels/:id - Delete label (Admin only)
+  static async deleteLabel(id: number): Promise<ApiResponse<void>> {
+    try {
+      console.log('🔄 Deleting label ID:', id);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/labels/${id}`, {
+        method: 'DELETE',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 403) {
+          return { success: false, message: 'Admin access required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Label not found' };
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errorData.message || 'Failed to delete label'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Label deleted successfully');
+
+      return {
+        success: result.success,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error deleting label:', error);
+      return {
+        success: false,
+        message: 'Failed to delete label'
+      };
+    }
+  }
+
+  // POST /api/issues/:issueId/labels/:labelId - Add label to issue
+  static async addLabelToIssue(issueId: number, labelId: number): Promise<ApiResponse<void>> {
+    try {
+      console.log('🔄 Adding label', labelId, 'to issue', issueId);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/issues/${issueId}/labels/${labelId}`, {
+        method: 'POST',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Issue or label not found' };
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errorData.message || 'Failed to add label to issue'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Label added to issue successfully');
+
+      return {
+        success: result.success,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error adding label to issue:', error);
+      return {
+        success: false,
+        message: 'Failed to add label to issue'
+      };
+    }
+  }
+
+  // DELETE /api/issues/:issueId/labels/:labelId - Remove label from issue
+  static async removeLabelFromIssue(issueId: number, labelId: number): Promise<ApiResponse<void>> {
+    try {
+      console.log('🔄 Removing label', labelId, 'from issue', issueId);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/issues/${issueId}/labels/${labelId}`, {
+        method: 'DELETE',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Issue or label not found' };
+        }
+        
+        const errorData = await response.json().catch(() => ({}));
+        return {
+          success: false,
+          message: errorData.message || 'Failed to remove label from issue'
+        };
+      }
+
+      const result = await response.json();
+      console.log('✅ Label removed from issue successfully');
+
+      return {
+        success: result.success,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error removing label from issue:', error);
+      return {
+        success: false,
+        message: 'Failed to remove label from issue'
+      };
+    }
+  }
+
+  // GET /api/issues/label/:labelId - Get issues by label
+  static async getIssuesByLabel(labelId: number): Promise<ApiResponse<any[]>> {
+    try {
+      console.log('🔄 Fetching issues for label ID:', labelId);
+      
+      const response = await fetch(`${API_SERVER_BASE_URL}/issues/label/${labelId}`, {
+        method: 'GET',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+          return { success: false, message: 'Authentication required' };
+        }
+        if (response.status === 404) {
+          return { success: false, message: 'Label not found' };
+        }
+        
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Issues by label fetched successfully:', result.data?.length || 0, 'issues');
+
+      return {
+        success: result.success,
+        data: result.data,
+        message: result.message
+      };
+    } catch (error) {
+      console.error('❌ Error fetching issues by label:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch issues by label'
+      };
+    }
+  }
+}

@@ -93,7 +93,7 @@ const ActivityPage: React.FC = () => {
 
       // Load data from services
       const [issuesResponse, projectsResponse, usersResponse] = await Promise.all([
-        IssueService.getAllIssues(),
+        IssueService.getUserProjectsIssues(),
         ProjectService.getAllProjects().catch(() => ({ success: false, data: [] })),
         UserService.getAllUsers().catch(() => ({ success: false, data: [] }))
       ]);

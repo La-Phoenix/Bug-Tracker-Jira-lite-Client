@@ -28,6 +28,7 @@ import { IssueService } from '../services/IssueServices';
 import { UserService } from '../services/UserService';
 import { ProjectsSkeleton } from '../components/Skeleton';
 import type { Project } from '../types/interface';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProjectWithStats extends Project {
   issueCount: number;
@@ -49,6 +50,7 @@ interface ProjectStats {
 }
 
 const ProjectsPage: React.FC = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +95,7 @@ const ProjectsPage: React.FC = () => {
 
       const [projectsResponse, issuesResponse, usersResponse] = await Promise.all([
         ProjectService.getAllProjects(),
-        IssueService.getAllIssues().catch(() => ({ success: false, data: [] })),
+        IssueService.getUserProjectsIssues().catch(() => ({ success: false, data: [] })),
         UserService.getAllUsers().catch(() => ({ success: false, data: [] }))
       ]);
 
@@ -329,20 +331,26 @@ const ProjectsPage: React.FC = () => {
       >
         <Eye className="h-4 w-4" />
       </button>
-      <button 
-        onClick={() => setEditingProject(project)}
-        className="p-1.5 sm:p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-        title="Edit project"
-      >
-        <Edit3 className="h-4 w-4" />
-      </button>
-      <button 
-        onClick={() => setDeletingProject(project)}
-        className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-        title="Delete project"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {
+        user?.role === "Admin" && (
+          <>
+          <button 
+            onClick={() => setEditingProject(project)}
+            className="p-1.5 sm:p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+            title="Edit project"
+          >
+            <Edit3 className="h-4 w-4" />
+          </button>
+          <button 
+            onClick={() => setDeletingProject(project)}
+            className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            title="Delete project"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+          </>
+        )
+      }
     </div>
   );
 
@@ -392,13 +400,17 @@ const ProjectsPage: React.FC = () => {
               <RefreshCw className="h-4 w-4" />
               <span className="sm:inline">Refresh</span>
             </button>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Project</span>
-            </button>
+            {
+              user?.role === "Admin" && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>New Project</span>
+                </button>
+              )
+            }
           </div>
         </div>
 
@@ -676,14 +688,18 @@ const ProjectsPage: React.FC = () => {
                       onChange={() => handleSelectProject(project.id)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
-                    <div className="relative group">
-                      <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                      <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
-                        <ActionButtons project={project} className="flex-col p-2 gap-0" />
-                      </div>
-                    </div>
+                    {
+                      user?.role === "Admin" && (
+                        <div className="relative group">
+                          <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                          <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                            <ActionButtons project={project} className="flex-col p-2 gap-0" />
+                          </div>
+                        </div>
+                      )
+                    }
                   </div>
                 </div>
 

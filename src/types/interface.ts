@@ -31,7 +31,7 @@ export interface Issue {
 export interface Label {
   id: number;
   name: string;
-  color?: string;
+  color: string;
   description?: string;
   createdAt: string | Date;
   updatedAt: string | Date;

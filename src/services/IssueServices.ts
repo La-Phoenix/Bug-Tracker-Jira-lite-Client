@@ -32,6 +32,30 @@ export class IssueService {
     }
   }
 
+  // GET /api/issues/my-projects-issues?priorityId=1 - Get all issues from user's projects
+  static async getUserProjectsIssues(priorityId?: number): Promise<ApiResponse<Issue[]>> {
+    try {
+      const response = await fetch(`${API_SERVER_BASE_URL}/issues/my-projects-issues${priorityId? "?priorityId=" + priorityId : ""}`, {
+        method: 'GET',
+        headers: AuthService.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.handleAuthError();
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Issues API Response:', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching issues:', error);
+      throw error;
+    }
+  }
+
   // GET /api/issues/:id - Get issue by ID
   static async getIssueById(id: number): Promise<ApiResponse<Issue>> {
     try {

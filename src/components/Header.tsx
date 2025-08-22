@@ -211,7 +211,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       setLoading(true);
       
       const [issuesResponse, projectsResponse, usersResponse] = await Promise.all([
-        IssueService.getAllIssues(),
+        IssueService.getUserProjectsIssues(),
         ProjectService.getAllProjects().catch(() => ({ success: false, data: [] })),
         UserService.getAllUsers().catch(() => ({ success: false, data: [] }))
       ]);

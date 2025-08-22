@@ -60,7 +60,7 @@ const Dashboard: React.FC = () => {
       setError('');
 
       const [issuesRes, projectsRes, usersRes] = await Promise.all([
-        IssueService.getAllIssues(),
+        IssueService.getUserProjectsIssues(),
         ProjectService.getAllProjects().catch(() => ({ success: false, data: [] })),
         UserService.getAllUsers().catch(() => ({ success: false, data: [] }))
       ]);
@@ -191,7 +191,7 @@ const Dashboard: React.FC = () => {
               <span className="sm:inline">Refresh</span>
             </button>
             <Link
-              to="/issues"
+              to="/issues?create=true"
               className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
             >
               <Plus className="h-4 w-4" />
