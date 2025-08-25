@@ -23,7 +23,7 @@ import {
 import { UserService } from '../services/UserService';
 import { IssueService } from '../services/IssueServices';
 import { TeamSkeleton } from '../components/TeamSkeleton';
-import type { User as UserType, Issue, ApiResponse, Project } from '../types/interface';
+import type { Issue, ApiResponse, Project } from '../types/interface';
 import { useAuth } from '../contexts/AuthContext';
 import { EmailModal, type EmailRecipient } from '../components/EmailModal';
 import { MessagePromptModal } from '../components/MessagePromptModal';
@@ -103,6 +103,7 @@ const Team: React.FC = () => {
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
   const [isProjectSelectionOpen, setIsProjectSelectionOpen] = useState(false);
 
+  console.log(allIssues, selectedProjectForRemoval, isInviteModalOpen)
   useEffect(() => {
     loadTeamData();
   }, []);
