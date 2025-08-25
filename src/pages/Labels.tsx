@@ -32,11 +32,13 @@ const Labels: React.FC = () => {
     fetchLabels();
   }, []);
   
-  const fetchLabels = async () => {
-    setLoading(true);
-    setError(null);
-    
+  const fetchLabels = async (isRefresh = false) => {
     try {
+      if (!isRefresh) {
+        setLoading(true);
+      }
+      setError(null);
+      
       const result = await LabelService.getAllLabels();
       
       if (result.success && result.data) {
@@ -52,51 +54,48 @@ const Labels: React.FC = () => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
+  
+  if (!formData.name.trim()) {
+    setError('Label name is required');
+    return;
+  }
+
+  if (!formData.color.match(/^#[0-9A-Fa-f]{6}$/)) {
+    setError('Color must be in hex format (#rrggbb)');
+    return;
+  }
+
+  setSubmitting(true);
+  setError(null);
+
+  try {
+    let result;
     
-    if (!formData.name.trim()) {
-      setError('Label name is required');
-      return;
+    if (editingLabel) {
+      result = await LabelService.updateLabel(editingLabel.id, {
+        name: formData.name.trim(),
+        color: formData.color
+      });
+    } else {
+      result = await LabelService.createLabel({
+        name: formData.name.trim(),
+        color: formData.color
+      });
     }
 
-    if (!formData.color.match(/^#[0-9A-Fa-f]{6}$/)) {
-      setError('Color must be in hex format (#rrggbb)');
-      return;
+    if (result.success) {
+      handleCloseModal();
+      await fetchLabels(true);
+    } else {
+      setError(result.message || 'Failed to save label');
     }
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      let result;
-      
-      if (editingLabel) {
-        // Update existing label
-        result = await LabelService.updateLabel(editingLabel.id, {
-          name: formData.name.trim(),
-          color: formData.color
-        });
-      } else {
-        // Create new label
-        result = await LabelService.createLabel({
-          name: formData.name.trim(),
-          color: formData.color
-        });
-      }
-      console.log("result: ", result)
-
-      if (result.success) {
-        await fetchLabels(); // Refresh the list
-        handleCloseModal();
-      } else {
-        setError(result.message || 'Failed to save label');
-      }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred while saving the label');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  } catch (err: any) {
+    setError(err.message || 'An error occurred while saving the label');
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleEdit = (label: Label) => {
     setEditingLabel(label);
@@ -118,16 +117,20 @@ const Labels: React.FC = () => {
   const confirmDelete = async () => {
     if (!deletingLabel) return;
 
-    setIsDeleting(true);
-    setError(null);
-
     try {
+      setIsDeleting(true);
       const result = await LabelService.deleteLabel(deletingLabel.id);
       
       if (result.success) {
-        await fetchLabels(); // Refresh the list
+        // Close modal first
         setIsDeleteModalOpen(false);
         setDeletingLabel(null);
+        
+        // Clear any error states
+        setError(null);
+        
+        // Then refresh data
+        await fetchLabels();
       } else {
         setError(result.message || 'Failed to delete label');
       }

@@ -35,8 +35,8 @@ const Issues: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Add view mode
-  const [showFilters, setShowFilters] = useState(false); // Mobile filter toggle
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showFilters, setShowFilters] = useState(false);
   
   const [projects, setProjects] = useState<Project[]>([]);
 
@@ -47,7 +47,6 @@ const Issues: React.FC = () => {
   const [viewingIssue, setViewingIssue] = useState<Issue | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingIssue, setDeletingIssue] = useState<Issue | null>(null);
-
 
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -141,10 +140,14 @@ const Issues: React.FC = () => {
     setDeletingIssue(issue);
     setIsDeleteModalOpen(true);
   };
+
   const handleDeleteFromView = (issue: Issue) => {
     setViewingIssue(null);
     setIsViewModalOpen(false);
-    handleDeleteIssue(issue);
+    setTimeout(() => {
+      setDeletingIssue(issue);
+      setIsDeleteModalOpen(true);
+    }, 100);
   };
 
   const filterAndSortIssues = () => {
@@ -155,7 +158,7 @@ const Issues: React.FC = () => {
       filtered = filtered.filter(issue =>
         issue.title?.toLowerCase().includes(search) ||
         issue.description?.toLowerCase().includes(search) ||
-         issue.projectName?.toLowerCase().includes(search) ||
+        issue.projectName?.toLowerCase().includes(search) ||
         (issue.labels && issue.labels.some(label => 
           label.name.toLowerCase().includes(search)
         ))
@@ -235,9 +238,12 @@ const Issues: React.FC = () => {
       const result = await IssueService.deleteIssue(deletingIssue.id);
       
       if (result.success) {
-        await fetchInitialData();
         setIsDeleteModalOpen(false);
         setDeletingIssue(null);
+        
+        setError('');
+        
+        await fetchInitialData(true);
       } else {
         setError(result.message || 'Failed to delete issue');
       }
@@ -248,19 +254,18 @@ const Issues: React.FC = () => {
     }
   };
 
-const cancelDelete = () => {
-  if (isDeleting) return; // Prevent closing while deleting
-  setIsDeleteModalOpen(false);
-  setDeletingIssue(null);
-};
+  const cancelDelete = () => {
+    if (isDeleting) return; // Prevent closing while deleting
+    setIsDeleteModalOpen(false);
+    setDeletingIssue(null);
+  };
 
-
-  const handleIssueModalClose = (shouldRefresh?: boolean) => {
+  const handleIssueModalClose = async (shouldRefresh?: boolean) => {
     setIsCreateEditModalOpen(false);
     setEditingIssue(null);
     
     if (shouldRefresh) {
-      fetchInitialData();
+      await fetchInitialData(true);
     }
   };
 
@@ -327,9 +332,9 @@ const cancelDelete = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
                 Issues
               </h1>
-              {/* {refreshing && (
+              {refreshing && (
                 <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
-              )} */}
+              )}
             </div>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
               Track and manage project issues
@@ -411,9 +416,9 @@ const cancelDelete = () => {
               </div>
             </div>
 
-            {/* Filter Grid - Updated to include project */}
+            {/* Filter Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Project Filter - Add this */}
+              {/* Project Filter */}
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
@@ -453,7 +458,7 @@ const cancelDelete = () => {
                 <option value="low">Low</option>
               </select>
 
-              {/* Sort - Updated to include project sorting */}
+              {/* Sort */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -470,7 +475,7 @@ const cancelDelete = () => {
               </select>
             </div>
 
-            {/* Label Filter & Actions - keep unchanged */}
+            {/* Label Filter & Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex-1">
                 <LabelFilter
@@ -491,7 +496,7 @@ const cancelDelete = () => {
           </div>
         </div>
 
-        {/* Results Summary - Updated */}
+        {/* Results Summary */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
@@ -507,7 +512,7 @@ const cancelDelete = () => {
             )}
           </div>
           
-          {/* Mobile View Mode Toggle - keep unchanged */}
+          {/* Mobile View Mode Toggle */}
           <div className="flex sm:hidden items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1 self-start">
             <button
               onClick={() => setViewMode('grid')}
@@ -783,6 +788,7 @@ const cancelDelete = () => {
         )}
       </div>
 
+      {/* Delete Confirmation Modal */}
       <DeleteConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={cancelDelete}
@@ -794,7 +800,7 @@ const cancelDelete = () => {
         isDeleting={isDeleting}
       />
 
-      {/* Modals */}
+      {/* Other Modals */}
       {isViewModalOpen && viewingIssue && (
         <ViewIssue
           issue={viewingIssue}
