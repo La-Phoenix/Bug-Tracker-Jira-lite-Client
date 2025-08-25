@@ -17,32 +17,77 @@ import {
   Filter,
   ChevronDown,
   Mail,
-  MoreVertical
+  CheckCircle,
+  X
 } from 'lucide-react';
 import { UserService } from '../services/UserService';
 import { IssueService } from '../services/IssueServices';
 import { TeamSkeleton } from '../components/TeamSkeleton';
-import type { User as UserType, Issue } from '../types/interface';
+import type { User as UserType, Issue, ApiResponse, Project } from '../types/interface';
 import { useAuth } from '../contexts/AuthContext';
+import { EmailModal, type EmailRecipient } from '../components/EmailModal';
+import { MessagePromptModal } from '../components/MessagePromptModal';
+import { ConfirmationModal } from '../components/ConfirmationModal';
+import { ProjectService } from '../services/ProjectService';
+import { ProjectSelectionModal } from '../components/ProjectSelectionModal';
+import { AddUserToProjectModal } from '../components/Team/AddUserToProjectModal';
 
-interface TeamMember extends UserType {
-  userName?: string;
-  userRole?: "Admin" | "User";
-  activeIssues?: number;
-  resolvedIssues?: number;
-  lastActive?: string;
-  userEmail?: string;
-  performance?: 'excellent' | 'good' | 'average' | 'needs-attention';
+export interface TeamMember {
+  userId: number;
+  userName: string;
+  userRole: "Admin" | "User";
+  activeIssues: number;
+  resolvedIssues: number;
+  lastActive: string;
+  userEmail: string;
+  performance: 'excellent' | 'good' | 'average' | 'needs-attention';
+  sharedProjects: Project[]
 }
 
 const Team: React.FC = () => {
-  const {user} = useAuth();
+  const { user } = useAuth();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<TeamMember[]>([]);
   const [allIssues, setAllIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+
+  // Email modal states
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailRecipients, setEmailRecipients] = useState<EmailRecipient[]>([]);
   
+  // Add User Modal States
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [availableUsers, setAvailableUsers] = useState<TeamMember[]>([]);
+  const [addUserProgress, setAddUserProgress] = useState<{ current: number; total: number; currentUser?: string } | null>(null);
+
+  // Confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'warning' | 'danger' | 'info' | 'success';
+    confirmText?: string;
+    isLoading?: boolean;
+  } | null>(null);
+
+  // Message modal state
+  const [messageModal, setMessageModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    onSend: (message: string) => void;
+    isLoading?: boolean;
+  } | null>(null);
+
+  // Operation feedback states
+  const [operationError, setOperationError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Project management states
+  const [userProjects, setUserProjects] = useState<any[]>([]);
+  const [selectedProjectForRemoval, setSelectedProjectForRemoval] = useState<number | null>(null);
+
   // Filters and search
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -56,9 +101,7 @@ const Team: React.FC = () => {
   // Modals
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [removingMember, setRemovingMember] = useState<TeamMember | null>(null);
-  const [isRemoving, setIsRemoving] = useState(false);
-
-  console.log(allIssues, isInviteModalOpen)
+  const [isProjectSelectionOpen, setIsProjectSelectionOpen] = useState(false);
 
   useEffect(() => {
     loadTeamData();
@@ -73,18 +116,22 @@ const Team: React.FC = () => {
       setLoading(true);
       setError('');
       
-      const [usersResponse, issuesResponse] = await Promise.all([
+      const [usersResponse, issuesResponse, projectsResponse] = await Promise.all([
         UserService.getTeamMembers(),
-        IssueService.getUserProjectsIssues()
+        IssueService.getUserProjectsIssues(),
+        ProjectService.getMyProjects()
       ]);
+
+      // Set user's projects
+      if (projectsResponse.success && projectsResponse.data) {
+        setUserProjects(projectsResponse.data);
+      }
 
       if (usersResponse.success && usersResponse.data) {
         const issues = issuesResponse.success ? issuesResponse.data || [] : [];
         setAllIssues(issues);
         
-        console.log("Team:", usersResponse)
-        console.log("Issues:", issuesResponse)
-        // Enhance users with performance data
+        // Enhanced members logic
         const enhancedMembers: any[] = usersResponse.data.map(user => {
           const userIssues = issues.filter(issue => issue.assigneeId === user.id);
           const activeIssues = userIssues.filter(issue => 
@@ -95,7 +142,6 @@ const Team: React.FC = () => {
             issue.statusName?.toLowerCase() === 'resolved'
           ).length;
           
-          // Calculate performance based on resolved vs active ratio
           let performance: 'excellent' | 'good' | 'average' | 'needs-attention' = 'average';
           const totalIssues = userIssues.length;
           if (totalIssues > 0) {
@@ -114,7 +160,6 @@ const Team: React.FC = () => {
             performance
           };
         });
-        console.log("enhanced team members:", enhancedMembers)
 
         setTeamMembers(enhancedMembers);
       } else {
@@ -133,10 +178,9 @@ const Team: React.FC = () => {
 
     // Search filter
     if (searchTerm) {
-      console.log("filtered",filtered)
       filtered = filtered.filter(member =>
-        (member.name || member.userName)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (member.email || member.userEmail)?.toLowerCase().includes(searchTerm.toLowerCase())
+        member.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.userEmail?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -157,6 +201,103 @@ const Team: React.FC = () => {
     setFilteredMembers(filtered);
   };
 
+  
+  // Add function to handle adding users to project (around line 500)
+  const handleAddUsersToProject = async (
+    projectId: number, 
+    users: Array<{ userId: number; role: 'Admin' | 'Member' }>
+  ) => {
+    try {
+      let successCount = 0;
+      let failedUsers: string[] = [];
+      
+      // Set up progress tracking
+      setAddUserProgress({ current: 0, total: users.length });
+      
+      // Process each user individually
+      for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const userData = availableUsers.find(u => u.userId === user.userId);
+        const userName = userData?.userName || `User ${user.userId}`;
+        
+        // Update progress
+        setAddUserProgress({
+          current: i + 1,
+          total: users.length,
+          currentUser: userName
+        });
+        
+        try {
+          const response = await ProjectService.addProjectMembers(
+            projectId, 
+            user.userId, 
+            user.role === 'Admin' ? 'Admin' : 'Member'
+          );
+          
+          if (response.success) {
+            successCount++;
+          } else {
+            failedUsers.push(userName);
+          }
+        } catch (error) {
+          failedUsers.push(userName);
+        }
+        
+        // Small delay between requests to prevent overwhelming the server
+        if (i < users.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      // Clear progress
+      setAddUserProgress(null);
+      
+      // Show results (same as before)
+      if (successCount > 0) {
+        const adminCount = users.filter(u => u.role === 'Admin').length;
+        const memberCount = users.filter(u => u.role === 'Member').length;
+        
+        let message = `Successfully added ${successCount} user${successCount === 1 ? '' : 's'} to project`;
+        if (adminCount > 0 && memberCount > 0) {
+          message += ` (${adminCount} admin${adminCount === 1 ? '' : 's'}, ${memberCount} member${memberCount === 1 ? '' : 's'})`;
+        } else if (adminCount > 0) {
+          message += ` as admin${adminCount === 1 ? '' : 's'}`;
+        } else {
+          message += ` as member${memberCount === 1 ? '' : 's'}`;
+        }
+        
+        showSuccess(message);
+        loadTeamData();
+      }
+      
+      if (failedUsers.length > 0) {
+        showError(`Failed to add ${failedUsers.length} user${failedUsers.length === 1 ? '' : 's'}: ${failedUsers.join(', ')}`);
+      }
+      
+    } catch (error: any) {
+      setAddUserProgress(null);
+      console.error('Error adding users to project:', error);
+      showError(`Error adding users: ${error.message || 'Please try again'}`);
+    }
+  };
+
+  const showError = (message: string) => {
+    setOperationError(message);
+    setTimeout(() => setOperationError(''), 5000);
+  };
+
+  const closeConfirmationModal = () => {
+    if (!confirmationModal?.isLoading) {
+      setConfirmationModal(null);
+    }
+  };
+
+  const closeMessageModal = () => {
+    if (!messageModal?.isLoading) {
+      setMessageModal(null);
+    }
+  };
+
   const handleSelectMember = (memberId: number) => {
     setSelectedMembers(prev => 
       prev.includes(memberId) 
@@ -166,36 +307,101 @@ const Team: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedMembers.length === filteredMembers.length) {
-      setSelectedMembers([]);
-    } else {
-      setSelectedMembers(filteredMembers.map(member => member.id));
+  if (selectedMembers.length === filteredMembers.length && filteredMembers.length > 0) {
+    // If all are selected, deselect all
+    setSelectedMembers([]);
+  } else {
+    // If none or some are selected, select all filtered members
+    setSelectedMembers(filteredMembers.map(member => member.userId));
+  }
+};
+
+  const getUserProjects = async(userId: number) => {
+    const resp = await ProjectService.getMyProjects(userId);
+    if(resp.success) {
+      setUserProjects(resp.data);
+    } else{
+      showError(resp.message || resp.errors.map(e => e).join(" ") || "Failed to fecth projects")
     }
-  };
+  }
 
   const handleRemoveMember = async (member: TeamMember) => {
     setRemovingMember(member);
+    await getUserProjects(member.userId);
+    confirmRemove();
   };
 
   const confirmRemove = async () => {
     if (!removingMember) return;
     
-    setIsRemoving(true);
-    try {
-      // Note: Implement actual removal logic here
-      console.log('Removing member:', removingMember.id);
-      // await UserService.deleteUser(removingMember.id);
-      setRemovingMember(null);
-    } catch (err: any) {
-      console.error('Error removing team member:', err);
-      alert('An error occurred while removing the team member');
-    } finally {
-      setIsRemoving(false);
+    // If user has no projects or only one project, proceed directly
+    // if (userProjects.length <= 1) {
+    if (userProjects.length < 1) {
+      const projectId = userProjects.length === 1 ? userProjects[0].id : null;
+      showRemovalConfirmation(projectId);
+      return;
     }
+    
+    // Show project selection modal first
+    setIsProjectSelectionOpen(true);
+  };
+
+  const handleProjectSelection = (projectId: number) => {
+    setSelectedProjectForRemoval(projectId);
+    setIsProjectSelectionOpen(false);
+    showRemovalConfirmation(projectId);
+  };
+
+  const showRemovalConfirmation = (projectId: number | null) => {
+    if (!removingMember) return;
+    
+    const project = userProjects.find(p => p.id === projectId);
+    const projectName = project ? project.name : 'the organization';
+    
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Remove Team Member',
+      message: `Are you sure you want to remove ${removingMember.userName} from ${projectName}?\n\nThey will lose access to this project and its issues.`,
+      variant: 'danger',
+      confirmText: 'Remove Member',
+      onConfirm: async () => {
+        try {
+          setConfirmationModal(prev => prev ? { ...prev, isLoading: true } : null);
+          
+          let response: ApiResponse<any>;
+          if (projectId) {
+            // Remove from specific project
+            console.log("removingMember: ", removingMember)
+            response = await ProjectService.removeProjectMember(projectId, removingMember.userId);
+          } else {
+            // Handle case where user has no projects
+            setConfirmationModal(null);
+            showError('Member is not assigned to any project yet.');
+            return;
+          }
+          
+          if (response.success) {
+            setTeamMembers(prev => prev.filter(m => m.userId !== removingMember.userId));
+            setSelectedMembers(prev => prev.filter(id => id !== removingMember.userId));
+            
+            setConfirmationModal(null);
+            setRemovingMember(null);
+            setSelectedProjectForRemoval(null);
+            showSuccess(`${removingMember.userName} has been removed from ${projectName}`);
+          } else {
+            setConfirmationModal(null);
+            showError(response?.message || 'Failed to remove team member');
+          }
+        } catch (err: any) {
+          console.error('Error removing team member:', err);
+          setConfirmationModal(null);
+          showError(`Error removing team member: ${err.message || 'Please try again'}`);
+        }
+      }
+    });
   };
 
   const getRoleColor = (role: string) => {
-    console.log("role:", role)
     switch (role?.toLowerCase()) {
       case 'admin':
         return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300';
@@ -269,6 +475,191 @@ const Team: React.FC = () => {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const handleSendEmail = (member: TeamMember, isSelected = false) => {
+    const recipients: EmailRecipient[] = isSelected 
+      ? selectedMembers
+          .map(id => filteredMembers.find(m => m.userId === id))
+          .filter(Boolean) as TeamMember[]
+      : [member];
+
+    // Check for valid email addresses
+    const validEmails = recipients.filter(r => r.email || r.userEmail);
+    const invalidCount = recipients.length - validEmails.length;
+
+    if (validEmails.length === 0) {
+      showError('No valid email addresses found for selected members');
+      return;
+    }
+
+    // Show confirmation if some members don't have emails
+    if (invalidCount > 0) {
+      const memberNames = recipients.slice(0, 3).map(r => r.name || r.userName).join(', ');
+      setConfirmationModal({
+        isOpen: true,
+        title: 'Send Email with Missing Addresses',
+        message: `${invalidCount} selected member${invalidCount === 1 ? '' : 's'} ${invalidCount === 1 ? 'does' : 'do'} not have email addresses.\n\nContinue sending to ${validEmails.length} member${validEmails.length === 1 ? '' : 's'} (${memberNames}${recipients.length > 3 ? '...' : ''})?`,
+        variant: 'warning',
+        confirmText: 'Continue',
+        onConfirm: () => {
+          setConfirmationModal(null);
+          setEmailRecipients(recipients);
+          setIsEmailModalOpen(true);
+        }
+      });
+      return;
+    }
+
+    setEmailRecipients(recipients);
+    setIsEmailModalOpen(true);
+  };
+
+  const handleBulkEmail = () => {
+    if (selectedMembers.length === 0) {
+      showError('Please select team members first');
+      return;
+    }
+    
+    const selectedMembersList = selectedMembers
+      .map(id => filteredMembers.find(m => m.userId === id))
+      .filter(Boolean) as TeamMember[];
+      
+    const memberNames = selectedMembersList
+      .slice(0, 3)
+      .map(m => m.userName)
+      .join(', ');
+      
+    setConfirmationModal({
+      isOpen: true,
+      title: 'Send Bulk Email',
+      message: `Send email to ${selectedMembers.length} selected member${selectedMembers.length === 1 ? '' : 's'}?\n\n${memberNames}${selectedMembers.length > 3 ? '...' : ''}`,
+      variant: 'info',
+      confirmText: 'Send Email',
+      onConfirm: () => {
+        setConfirmationModal(null);
+        handleSendEmail(filteredMembers[0], true);
+      }
+    });
+  };
+
+  const getEmailDefaults = () => {
+    const isMultiple = emailRecipients.length > 1;
+    
+    const subject = isMultiple 
+      ? `Team Update - ${emailRecipients.length} members`
+      : `Message for ${emailRecipients[0]?.name || emailRecipients[0]?.userName}`;
+        
+    const body = isMultiple
+      ? `Hi Team,\n\nI hope this message finds you all well.\n\nBest regards,\n${user?.name || 'Team Lead'}`
+      : `Hi ${emailRecipients[0]?.name || emailRecipients[0]?.userName},\n\nI hope this message finds you well.\n\nBest regards,\n${user?.name || 'Team Lead'}`;
+        
+    return { subject, body };
+  };
+
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(''), 4000);
+  };
+
+  const handleEmailSent = (result: { recipientCount: number; subject: string; success: boolean }) => {
+    if (result.success) {
+      showSuccess(`Email client opened for ${result.recipientCount} recipient${result.recipientCount === 1 ? '' : 's'}`);
+      
+      // Clear selection after bulk email
+      if (selectedMembers.length > 0) {
+        setSelectedMembers([]);
+      }
+    }
+  };
+
+  const handleEmailError = (error: string) => {
+    showError(error);
+  };
+  
+  const handleSendMessage = async (member: TeamMember, isSelected = false) => {
+    const recipientCount = isSelected ? selectedMembers.length : 1;
+    const recipientNames = isSelected 
+      ? selectedMembers.map(id => {
+          const m = filteredMembers.find(m => m.userId === id);
+          return m?.userName;
+        }).filter(Boolean).slice(0, 3).join(', ')
+      : (member.userName);
+
+    const title = isSelected 
+      ? `Send message to ${recipientCount} selected members (${recipientNames}${recipientCount > 3 ? '...' : ''})`
+      : `Send message to ${ member.userName}`;
+
+    setMessageModal({
+      isOpen: true,
+      title,
+      onSend: async (message: string) => {
+        try {
+          setMessageModal(prev => prev ? { ...prev, isLoading: true } : null);
+          
+          // Simulate API call - replace with your actual messaging service
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          console.log('Sending message:', {
+            recipients: isSelected ? selectedMembers : [member.userId],
+            message,
+            sender: user?.id
+          });
+          
+          setMessageModal(null);
+          showSuccess(
+            isSelected 
+              ? `Message sent to ${recipientCount} team members!`
+              : `Message sent to ${member.userName}!`
+          );
+          
+          // Clear selection after bulk action
+          if (isSelected) {
+            setSelectedMembers([]);
+          }
+          
+        } catch (error: any) {
+          console.error('Error sending message:', error);
+          setMessageModal(null);
+          showError(`Failed to send message: ${error.message || 'Please try again'}`);
+        }
+      }
+    });
+  };
+  const openAddUserModal = () => {
+    loadAvailableUsers();
+    setIsAddUserModalOpen(true);
+  };
+
+  const loadAvailableUsers = async () => {
+    try {
+      // Get all users as fallback - this is now only used as initial data
+      const users = (await UserService.getAllUsers()).data;
+      const potentialMembers: TeamMember[] = users
+        .map(u => ({
+          userId: u.id,
+          userName: u.name,
+          userEmail: u.email,
+          userRole: u.role ?? "User",
+          activeIssues: 0,
+          resolvedIssues: 0,
+          lastActive: new Date().toISOString(),
+          performance: "average",
+          sharedProjects: []
+        }));
+      setAvailableUsers(potentialMembers);
+    } catch (error) {
+      console.error('Error loading available users:', error);
+      showError('Failed to load available users');
+    }
+  };
+
+  const handleBulkMessage = () => {
+    if (selectedMembers.length === 0) {
+      showError('Please select team members first');
+      return;
+    }
+    handleSendMessage(filteredMembers[0], true);
+  };
+
   const getInitials = (name?: string) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -279,25 +670,32 @@ const Team: React.FC = () => {
     className = "" 
   }) => (
     <div className={`flex items-center gap-1 ${className}`}>
-      <button className="p-1.5 sm:p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Send message">
+      <button 
+        onClick={() => handleSendMessage(member)}
+        className="p-1.5 sm:p-1 text-gray-400 hover:text-blue-600 cursor-pointer dark:hover:text-blue-400 transition-colors" 
+        title="Send message"
+      >
         <MessageSquare className="h-4 w-4" />
       </button>
-      <button className="p-1.5 sm:p-1 text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors" title="Send email">
+      <button 
+        onClick={() => handleSendEmail(member)}
+        className="p-1.5 sm:p-1 text-gray-400 hover:text-green-600 cursor-pointer dark:hover:text-green-400 transition-colors" 
+        title="Send email"
+      >
         <Mail className="h-4 w-4" />
       </button>
-      {
-        user?.role === "Admin" && (
-          <button 
-            onClick={() => handleRemoveMember(member)}
-            className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" 
-            title="Remove member"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        )
-      }
+      {member?.userRole !== "Admin" && (
+        <button 
+          onClick={() => handleRemoveMember(member)}
+          className="p-1.5 sm:p-1 text-gray-400 hover:text-red-600 cursor-pointer dark:hover:text-red-400 transition-colors" 
+          title="Remove member"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
+
 
   if (loading) {
     return <TeamSkeleton viewMode={viewMode} />;
@@ -344,19 +742,24 @@ const Team: React.FC = () => {
               Manage your development team and track performance
             </p>
           </div>
-          {
-            user?.role === "Admin" && (
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => setIsInviteModalOpen(true)}
-                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm sm:text-base"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  <span>Invite Member</span>
-                </button>
-              </div>
-            )
-          }
+          {/* {user?.role === "Admin" && ( */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => setIsInviteModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors shadow-sm text-sm sm:text-base"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Invite Member</span>
+              </button>
+              <button
+                onClick={openAddUserModal}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer transition-colors shadow-sm text-sm sm:text-base"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Add to Project</span>
+              </button>
+            </div>
+          {/* )} */}
         </div>
 
         {/* Team Stats */}
@@ -432,7 +835,7 @@ const Team: React.FC = () => {
               {/* Mobile Filter Toggle */}
               <button
                 onClick={() => setShowMobileFilters(!showMobileFilters)}
-                className="flex lg:hidden text-white items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex lg:hidden text-gray-700 dark:text-gray-300 items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <Filter className="h-4 w-4" />
                 Filters
@@ -587,12 +990,23 @@ const Team: React.FC = () => {
                     <span className="font-medium">{selectedMembers.length}</span> selected
                   </span>
                   <div className="flex items-center gap-2">
-                    <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium">
+                    <button 
+                      onClick={handleBulkMessage}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                    >
                       Message
                     </button>
-                    <button className="text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium">
-                      Change Role
+                    <button 
+                      onClick={handleBulkEmail}
+                      className="text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium"
+                    >
+                      Email
                     </button>
+                    {user?.role === "Admin" && (
+                      <button className="text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-medium">
+                        Change Role
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -605,38 +1019,28 @@ const Team: React.FC = () => {
           /* Grid View */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredMembers.map((member) => (
-              <div key={member.id} className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
+              <div key={member.userId} className="bg-white dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-md transition-shadow">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm sm:text-base flex-shrink-0">
-                      {getInitials(member.name || member.userName)}
+                      {getInitials( member.userName)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
-                        {member.name || member.userName}
+                        { member.userName}
                       </h3>
                       <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {member.email}
+                        {member.userEmail}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={selectedMembers.includes(member.id)}
-                      onChange={() => handleSelectMember(member.id)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div className="relative group">
-                      <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 sm:hidden">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                      <div className="absolute right-0 top-8 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-10 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 sm:hidden">
-                        <ActionButtons member={member} className="flex-col p-2 gap-0" />
-                      </div>
-                    </div>
-                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedMembers.includes(member.userId)}
+                    onChange={() => handleSelectMember(member.userId)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
                 </div>
 
                 {/* Role and Performance */}
@@ -672,24 +1076,28 @@ const Team: React.FC = () => {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
+                  <button 
+                    onClick={() => handleSendMessage(member)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer transition-colors"
+                  >
                     <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden sm:inline">Message</span>
                   </button>
-                  <button className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-300 dark:hover:border-green-600 transition-colors">
+                  <button 
+                    onClick={() => handleSendEmail(member)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 border border-gray-200 dark:border-gray-600 rounded-lg hover:border-green-300 dark:hover:border-green-600 cursor-pointer transition-colors"
+                  >
                     <Mail className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="hidden sm:inline">Email</span>
                   </button>
-                  {
-                    user?.role === "Admin" && (
-                      <button
-                        onClick={() => handleRemoveMember(member)}
-                        className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 transition-colors"
-                      >
-                        <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </button>
-                    )
-                  }
+                  {member?.userRole !== "Admin" && (
+                    <button
+                      onClick={() => handleRemoveMember(member)}
+                      className="px-2 sm:px-3 py-2 text-xs sm:text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border border-red-200 dark:border-red-800 rounded-lg hover:border-red-300 dark:hover:border-red-700 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -702,9 +1110,15 @@ const Team: React.FC = () => {
               <div className="flex items-center">
                 <input
                   type="checkbox"
-                  checked={selectedMembers.length === filteredMembers.length && filteredMembers.length > 0}
+                  checked={filteredMembers.length > 0 && selectedMembers.length === filteredMembers.length}
                   onChange={handleSelectAll}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  // Add indeterminate state for partial selection
+                  ref={(input) => {
+                    if (input) {
+                      input.indeterminate = selectedMembers.length > 0 && selectedMembers.length < filteredMembers.length;
+                    }
+                  }}
                 />
                 <div className="ml-4 grid grid-cols-12 gap-4 w-full text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                   <div className="col-span-3">Member</div>
@@ -720,27 +1134,27 @@ const Team: React.FC = () => {
             {/* Members */}
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredMembers.map((member) => (
-                <div key={member.id} className="p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <div key={member.userId} className="p-4 sm:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                   {/* Mobile Layout */}
                   <div className="lg:hidden">
                     <div className="flex items-start gap-3 mb-3">
                       <input
                         type="checkbox"
-                        checked={selectedMembers.includes(member.id)}
-                        onChange={() => handleSelectMember(member.id)}
+                        checked={selectedMembers.includes(member.userId)}
+                        onChange={() => handleSelectMember(member.userId)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-1"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                            {getInitials(member.name || member.userName)}
+                            {getInitials( member.userName)}
                           </div>
                           <div className="flex-1">
                             <h3 className="text-base font-medium text-gray-900 dark:text-white line-clamp-1">
-                              {member.name || member.userName}
+                              { member.userName}
                             </h3>
                             <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                              {member.email}
+                              {member.userEmail}
                             </p>
                           </div>
                         </div>
@@ -755,7 +1169,6 @@ const Team: React.FC = () => {
                             {member.performance || 'Average'}
                           </span>
                         </div>
-
                         <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
                           <div className="flex items-center gap-1">
                             <Target className="h-3 w-3" />
@@ -766,7 +1179,7 @@ const Team: React.FC = () => {
                             <span>{member.resolvedIssues || 0} resolved</span>
                           </div>
                           <span>•</span>
-                          <span>Active {formatDate(member.lastActive || member.createdAt as string)}</span>
+                          <span>Active {formatDate(member.lastActive)}</span>
                         </div>
                       </div>
                       <ActionButtons member={member} />
@@ -777,29 +1190,29 @@ const Team: React.FC = () => {
                   <div className="hidden lg:flex items-center">
                     <input
                       type="checkbox"
-                      checked={selectedMembers.includes(member.id)}
-                      onChange={() => handleSelectMember(member.id)}
+                      checked={selectedMembers.includes(member.userId)}
+                      onChange={() => handleSelectMember(member.userId)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <div className="ml-4 grid grid-cols-12 gap-4 w-full items-center">
                       {/* Member */}
                       <div className="col-span-3 flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                          {getInitials(member.name || member.userName)}
+                          {getInitials(member.userName)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {member.name || member.userName}
+                            { member.userName}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            {member.email}
+                            {member.userEmail}
                           </p>
                         </div>
                       </div>
 
                       {/* Role */}
                       <div className="col-span-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.role as string)}`}>
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(member.userRole as string)}`}>
                           {getRoleIcon(member.userRole as string)}
                           {member.userRole || 'Member'}
                         </span>
@@ -826,7 +1239,7 @@ const Team: React.FC = () => {
                       {/* Last Active */}
                       <div className="col-span-2">
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(member.lastActive || member.createdAt as string)}
+                          {formatDate(member.lastActive )}
                         </p>
                       </div>
 
@@ -854,7 +1267,7 @@ const Team: React.FC = () => {
                 ? 'Try adjusting your search or filters'
                 : 'Start building your team by inviting members'}
             </p>
-            {!searchTerm && roleFilter === 'all' && performanceFilter === 'all' && (
+            {!searchTerm && roleFilter === 'all' && performanceFilter === 'all' && user?.role === "Admin" && (
               <button
                 onClick={() => setIsInviteModalOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -865,49 +1278,113 @@ const Team: React.FC = () => {
             )}
           </div>
         )}
-
-        {/* Remove Confirmation Modal */}
-        {removingMember && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
-              <div className="p-4 sm:p-6">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-amber-100 dark:bg-amber-900/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Remove Team Member
-                    </h3>
-                  </div>
-                </div>
-
-                <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm sm:text-base">
-                  Are you sure you want to remove <strong>{removingMember.name || removingMember.userName}</strong> from the team? 
-                  They will lose access to team projects and issues.
-                </p>
-
-                <div className="flex flex-col sm:flex-row justify-end gap-3">
-                  <button
-                    onClick={() => setRemovingMember(null)}
-                    disabled={isRemoving}
-                    className="w-full sm:w-auto px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmRemove}
-                    disabled={isRemoving}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    {isRemoving ? 'Removing...' : 'Remove Member'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Success/Error Notifications */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-100 dark:bg-green-800 border-2 border-green-300 dark:border-green-600 rounded-lg p-4 shadow-xl z-50 max-w-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-500 dark:bg-green-600 rounded-full flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-green-900 dark:text-green-100">
+                Success!
+              </p>
+              <p className="text-xs text-green-800 dark:text-green-200">
+                {successMessage}
+              </p>
+            </div>
+            <button
+              onClick={() => setSuccessMessage('')}
+              className="text-green-600 hover:text-green-800 dark:text-green-300 dark:hover:text-green-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {operationError && (
+        <div className="fixed top-4 right-4 bg-red-100 dark:bg-red-800 border-2 border-red-300 dark:border-red-600 rounded-lg p-4 shadow-xl z-50 max-w-sm backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-red-500 dark:bg-red-600 rounded-full flex items-center justify-center">
+              <AlertCircle className="h-4 w-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-red-900 dark:text-red-100">
+                Error
+              </p>
+              <p className="text-xs text-red-800 dark:text-red-200">
+                {operationError}
+              </p>
+            </div>
+            <button
+              onClick={() => setOperationError('')}
+              className="text-red-600 hover:text-red-800 dark:text-red-300 dark:hover:text-red-100"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Project Selection Modal */}
+      <ProjectSelectionModal
+        title="Select Project(s)"
+        isOpen={isProjectSelectionOpen}
+        onClose={() => setIsProjectSelectionOpen(false)}
+        onSelect={handleProjectSelection}
+        projects={userProjects}
+        memberName={ removingMember?.userName || ''}
+      />
+
+      {/* Confirmation Modal */}
+      {confirmationModal && (
+        <ConfirmationModal
+          isOpen={confirmationModal.isOpen}
+          onClose={closeConfirmationModal}
+          onConfirm={confirmationModal.onConfirm}
+          title={confirmationModal.title}
+          message={confirmationModal.message}
+          confirmText={confirmationModal.confirmText}
+          isLoading={confirmationModal.isLoading}
+          variant={confirmationModal.variant}
+        />
+      )}
+
+      {/* Message Modal */}
+      {messageModal && (
+        <MessagePromptModal
+          isOpen={messageModal.isOpen}
+          onClose={closeMessageModal}
+          onSend={messageModal.onSend}
+          title={messageModal.title}
+          isLoading={messageModal.isLoading}
+        />
+      )}
+
+      {/* Email Modal */}
+      <EmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        recipients={emailRecipients}
+        defaultSubject={getEmailDefaults().subject}
+        defaultBody={getEmailDefaults().body}
+        senderName={user?.name || 'Team Lead'}
+        onEmailSent={handleEmailSent}
+        onEmailError={handleEmailError}
+      />
+      {/* Add Users to Project Modal */}
+      <AddUserToProjectModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        projects={userProjects}
+        availableUsers={availableUsers}
+        onAddUsers={handleAddUsersToProject}
+        isLoading={!!addUserProgress}
+        progress={addUserProgress!}
+      />
     </div>
   );
 };

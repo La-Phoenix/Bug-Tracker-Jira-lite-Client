@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, CheckCircle, Loader } from 'lucide-react'; // Add CheckCircle import
 import { IssueService } from '../services/IssueServices';
 import { ProjectService } from '../services/ProjectService';
-import { UserService } from '../services/UserService';
 import { PriorityService } from '../services/PriorityService';
 import { StatusService } from '../services/StatusService';
 import { useAuth } from '../contexts/AuthContext';
 import type { Issue, Project, User, Priority, Status, Label, CreateIssueRequest } from '../types/interface';
 import { LabelSelector } from './LabelSelector';
+import type { TeamMember } from '../pages/Team';
 
 interface CreateEditIssueProps {
   issue?: Issue | null;
@@ -47,6 +47,7 @@ export const CreateEditIssue: React.FC<CreateEditIssueProps> = ({
   const [statuses, setStatuses] = useState<Status[]>([]);
   
   const [loading, setLoading] = useState(false);
+  const [isLoadingAssignee, setIsLoadingAssignee] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>(''); // Add success state
@@ -73,9 +74,8 @@ export const CreateEditIssue: React.FC<CreateEditIssueProps> = ({
     try {
       setLoading(true);
       
-      const [projectsRes, usersRes, prioritiesRes, statusesRes] = await Promise.all([
+      const [projectsRes, prioritiesRes, statusesRes] = await Promise.all([
         ProjectService.getAllProjects(),
-        UserService.getAllUsers(),
         PriorityService.getAllPriorities(),
         StatusService.getAllStatuses()
       ]);
@@ -84,9 +84,6 @@ export const CreateEditIssue: React.FC<CreateEditIssueProps> = ({
         setProjects(projectsRes.data);
       }
 
-      if (usersRes.success && usersRes.data) {
-        setUsers(usersRes.data);
-      }
 
       if (prioritiesRes.success && prioritiesRes.data) {
         setPriorities(prioritiesRes.data);
@@ -208,8 +205,26 @@ export const CreateEditIssue: React.FC<CreateEditIssueProps> = ({
     }
   };
 
-  const handleInputChange = (field: keyof IssueFormData, value: any) => {
+  const fetchAssignee = async (projectId: number) => {
+    setIsLoadingAssignee(true)
+    const resp = await ProjectService.getAvailableUsersForProject(projectId);
+      if (resp.success) {
+        const users: User[] = (resp.data as TeamMember[]).map((t) => ({
+            id: t.userId,
+            email: t.userEmail,
+            name: t.userName,
+            role: t.userRole
+        }));
+        setUsers(users);
+      }
+    setIsLoadingAssignee(false)
+  }
+  const handleInputChange = async (field: keyof IssueFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    console.log(field)
+    if(field  === "projectId" ) {
+      fetchAssignee(value)
+    }
     console.log(formData)
     // Clear messages when user types
     if (error) setError('');
@@ -331,7 +346,7 @@ export const CreateEditIssue: React.FC<CreateEditIssueProps> = ({
                 disabled={submitting || loading} // Also disable when loading
               >
                 <option value="">
-                  {loading ? 'Loading users...' : 'Select an assignee'}
+                  {loading || isLoadingAssignee ? 'Loading users...' : 'Select an assignee'}
                 </option>
                 {users.map((user) => (
                   <option key={user.id} value={user.id}>
