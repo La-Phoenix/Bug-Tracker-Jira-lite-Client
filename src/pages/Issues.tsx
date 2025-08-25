@@ -26,11 +26,13 @@ import { CreateEditIssue } from '../components/create_edit_modal';
 import { ViewIssue } from '../components/viewIssue';
 import { useSearchParams } from 'react-router-dom';
 import { ProjectService } from '../services/ProjectService';
+import { DeleteConfirmationModal } from '../components/DeleteConfirmationModal';
 
 const Issues: React.FC = () => {
   const [issues, setIssues] = useState<Issue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid'); // Add view mode
@@ -43,6 +45,9 @@ const Issues: React.FC = () => {
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [viewingIssue, setViewingIssue] = useState<Issue | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingIssue, setDeletingIssue] = useState<Issue | null>(null);
+
 
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -73,7 +78,7 @@ const Issues: React.FC = () => {
 
   useEffect(() => {
     filterAndSortIssues();
-  }, [issues, searchTerm, selectedStatus, selectedPriority, selectedLabelIds, sortBy]);
+  }, [issues, searchTerm, selectedStatus, selectedPriority, selectedProject, selectedLabelIds, sortBy]);
 
   const fetchInitialData = async (isRefresh = false) => {
     try {
@@ -132,6 +137,10 @@ const Issues: React.FC = () => {
     }, 100);
   };
 
+  const handleDeleteIssue = (issue: Issue) => {
+    setDeletingIssue(issue);
+    setIsDeleteModalOpen(true);
+  };
   const handleDeleteFromView = (issue: Issue) => {
     setViewingIssue(null);
     setIsViewModalOpen(false);
@@ -193,6 +202,8 @@ const Issues: React.FC = () => {
           return (a.title || '').localeCompare(b.title || '');
         case 'title_desc':
           return (b.title || '').localeCompare(a.title || '');
+        case 'project':
+          return (a.projectName || '').localeCompare(b.projectName || '');
         case 'priority':
           const priorityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1 };
           const aPriority = priorityOrder[a.priorityName?.toLowerCase() as keyof typeof priorityOrder] || 0;
@@ -216,23 +227,33 @@ const Issues: React.FC = () => {
     setIsCreateEditModalOpen(true);
   };
 
-  const handleDeleteIssue = async (issue: Issue) => {
-    if (!confirm(`Are you sure you want to delete "${issue.title}"?`)) {
-      return;
-    }
+  const confirmDelete = async () => {
+    if (!deletingIssue) return;
 
     try {
-      const result = await IssueService.deleteIssue(issue.id);
+      setIsDeleting(true);
+      const result = await IssueService.deleteIssue(deletingIssue.id);
       
       if (result.success) {
         await fetchInitialData();
+        setIsDeleteModalOpen(false);
+        setDeletingIssue(null);
       } else {
         setError(result.message || 'Failed to delete issue');
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred while deleting the issue');
+    } finally {
+      setIsDeleting(false);
     }
   };
+
+const cancelDelete = () => {
+  if (isDeleting) return; // Prevent closing while deleting
+  setIsDeleteModalOpen(false);
+  setDeletingIssue(null);
+};
+
 
   const handleIssueModalClose = (shouldRefresh?: boolean) => {
     setIsCreateEditModalOpen(false);
@@ -323,7 +344,7 @@ const Issues: React.FC = () => {
               className="sm:hidden flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
               <Filter className="w-4 h-4" />
-              Filters {hasActiveFilters && <span className="bg-blue-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{(searchTerm ? 1 : 0) + (selectedStatus !== 'all' ? 1 : 0) + (selectedPriority !== 'all' ? 1 : 0) + (selectedLabelIds.length > 0 ? 1 : 0)}</span>}
+              Filters {hasActiveFilters && <span className="bg-blue-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">{(searchTerm ? 1 : 0) + (selectedStatus !== 'all' ? 1 : 0) + (selectedPriority !== 'all' ? 1 : 0) + (selectedProject !== 'all' ? 1 : 0) + (selectedLabelIds.length > 0 ? 1 : 0)}</span>}
             </button>
 
             {/* View Mode Toggle */}
@@ -761,6 +782,17 @@ const Issues: React.FC = () => {
           </div>
         )}
       </div>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={cancelDelete}
+        onConfirm={confirmDelete}
+        title="Delete Issue"
+        itemName={deletingIssue?.title || ''}
+        itemType="issue"
+        description="This issue will be permanently removed along with any comments and attachments."
+        isDeleting={isDeleting}
+      />
 
       {/* Modals */}
       {isViewModalOpen && viewingIssue && (
