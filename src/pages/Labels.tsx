@@ -137,6 +137,8 @@ const Labels: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'An error occurred while deleting the label');
     } finally {
+      setIsDeleteModalOpen(false);
+      setDeletingLabel(null);
       setIsDeleting(false);
     }
   };

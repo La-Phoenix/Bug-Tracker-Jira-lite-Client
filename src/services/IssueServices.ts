@@ -138,16 +138,75 @@ export class IssueService {
         if (response.status === 401) {
           this.handleAuthError();
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return {
+          success: false,
+          message: `HTTP error! status: ${response.status}`,
+          data: undefined,
+          statusCode: response.status,
+          errors: [`Delete failed with status ${response.status}`]
+        };
       }
 
-      return response.json();
+      // Check if response has content
+      const contentType = response.headers.get('content-type');
+      const contentLength = response.headers.get('content-length');
+      
+      // If no content or empty response, return success
+      if (contentLength === '0' || !contentType?.includes('application/json')) {
+        return {
+          success: true,
+          message: 'Issue deleted successfully',
+          data: undefined,
+          statusCode: response.status,
+          errors: []
+        };
+      }
+
+      // Try to parse JSON response if there is content
+      const text = await response.text();
+      if (!text) {
+        return {
+          success: true,
+          message: 'Issue deleted successfully',
+          data: undefined,
+          statusCode: response.status,
+          errors: []
+        };
+      }
+
+      try {
+        const data = JSON.parse(text);
+        // If the parsed data doesn't have all required properties, add them
+        return {
+          success: data.success ?? true,
+          message: data.message ?? 'Issue deleted successfully',
+          data: data.data ?? undefined,
+          statusCode: data.statusCode ?? response.status,
+          errors: data.errors ?? []
+        };
+      } catch (parseError) {
+        // If JSON parsing fails but HTTP status was ok, assume success
+        console.warn('Delete successful but could not parse response:', text);
+        return {
+          success: true,
+          message: 'Issue deleted successfully',
+          data: undefined,
+          statusCode: response.status,
+          errors: []
+        };
+      }
+      
     } catch (error) {
       console.error('Error deleting issue:', error);
-      throw error;
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to delete issue',
+        data: undefined,
+        statusCode: 0, // Network error - no status code
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
     }
   }
-
   // Alternative method name for consistency with getAllIssues
   static async getIssues(): Promise<ApiResponse<Issue[]>> {
     return this.getAllIssues();

@@ -229,25 +229,37 @@ const Issues: React.FC = () => {
     setEditingIssue(issue);
     setIsCreateEditModalOpen(true);
   };
-
+ 
   const confirmDelete = async () => {
     if (!deletingIssue) return;
 
     try {
       setIsDeleting(true);
+      setError('');
+      
       const result = await IssueService.deleteIssue(deletingIssue.id);
       
       if (result.success) {
         setIsDeleteModalOpen(false);
+        const deletedIssueId = deletingIssue.id;
         setDeletingIssue(null);
         
-        setError('');
+        setIssues(prevIssues => prevIssues.filter(issue => issue.id !== deletedIssueId));
         
-        await fetchInitialData(true);
+        // Refresh from server after a delay (to sync any related data)
+        setTimeout(async () => {
+          try {
+            await fetchInitialData(true);
+          } catch (refreshError) {
+            console.error('Refresh error after delete:', refreshError);
+          }
+        }, 1000);
+        
       } else {
         setError(result.message || 'Failed to delete issue');
       }
     } catch (err: any) {
+      console.error('Delete error:', err);
       setError(err.message || 'An error occurred while deleting the issue');
     } finally {
       setIsDeleting(false);
