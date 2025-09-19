@@ -15,6 +15,7 @@ import Labels from './pages/Labels'
 import Chat from './pages/Chat'
 import { useAuth } from './contexts/AuthContext'
 import { AuthLoader } from './components/AuthLoader'
+import AdminDashboard from './pages/AdminDashboard'
 
 const App = () => {
   const { isLoading, isAuthenticated } = useAuth();
@@ -74,6 +75,14 @@ const App = () => {
           element={
             <PrivateRoute>
               <Chat />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/admin_dashoard"
+          element={
+            <PrivateRoute>
+              <AdminDashboard />
             </PrivateRoute>
           }
         />
