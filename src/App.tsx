@@ -79,7 +79,7 @@ const App = () => {
           }
         />
         <Route
-          path="/admin_dashoard"
+          path="/admin"
           element={
             <PrivateRoute>
               <AdminDashboard />
