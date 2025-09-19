@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reply, Edit3, Trash2, MoreVertical } from 'lucide-react';
-import type { ChatMessage } from '../../types/chat';
+import type { ChatMessage } from '../../types/interface';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MessageProps {

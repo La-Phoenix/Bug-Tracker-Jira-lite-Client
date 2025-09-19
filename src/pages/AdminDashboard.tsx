@@ -24,7 +24,7 @@ import {
   Globe
 } from 'lucide-react';
 import { AdminService } from '../services/AdminService';
-import type { AdminStats, SystemActivity, UserActivity, ProjectActivity, SystemHealth } from '../types/admin';
+import type { AdminStats, SystemActivity, UserActivity, ProjectActivity, SystemHealth } from '../types/interface';
 import { useAuth } from '../contexts/AuthContext';
 
 const AdminDashboard: React.FC = () => {

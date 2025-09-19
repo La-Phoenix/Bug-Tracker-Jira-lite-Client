@@ -1,9 +1,7 @@
 import type { ApiResponse } from '../types/interface';
-import type { AdminStats, SystemActivity, UserActivity, ProjectActivity, SystemHealth } from '../types/admin';
+import type { AdminStats, SystemActivity, UserActivity, ProjectActivity, SystemHealth } from '../types/interface';
 
 export class AdminService {
-  private static baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-
   static async getAdminStats(): Promise<ApiResponse<AdminStats>> {
     try {
       // Mock implementation - replace with actual API call
@@ -19,13 +17,25 @@ export class AdminService {
         storageLimit: 100
       };
 
-      return { success: true, data: mockStats };
+      return { 
+        success: true, 
+        data: mockStats,
+        statusCode: 200,
+        message: 'Admin stats fetched successfully',
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to fetch admin stats' };
+      return { 
+        success: false, 
+        message: 'Failed to fetch admin stats',
+        statusCode: 500,
+        data: {} as AdminStats,
+        errors: []
+      };
     }
   }
 
-  static async getSystemActivity(limit = 20): Promise<ApiResponse<SystemActivity[]>> {
+  static async getSystemActivity(): Promise<ApiResponse<SystemActivity[]>> {
     try {
       const mockActivity: SystemActivity[] = [
         {
@@ -52,9 +62,21 @@ export class AdminService {
         }
       ];
 
-      return { success: true, data: mockActivity };
+      return { 
+        success: true, 
+        data: mockActivity,
+        statusCode: 200,
+        message: 'System activity fetched successfully',
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to fetch system activity' };
+      return { 
+        success: false, 
+        message: 'Failed to fetch system activity',
+        statusCode: 500,
+        data: [] as SystemActivity[],
+        errors: []
+      };
     }
   }
 
@@ -73,9 +95,21 @@ export class AdminService {
         }
       ];
 
-      return { success: true, data: mockUserActivity };
+      return { 
+        success: true, 
+        data: mockUserActivity,
+        statusCode: 200,
+        message: 'User activity fetched successfully',
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to fetch user activity' };
+      return { 
+        success: false, 
+        message: 'Failed to fetch user activity',
+        statusCode: 500,
+        data: [] as UserActivity[],
+        errors: []
+      };
     }
   }
 
@@ -94,9 +128,21 @@ export class AdminService {
         }
       ];
 
-      return { success: true, data: mockProjectActivity };
+      return { 
+        success: true, 
+        data: mockProjectActivity,
+        statusCode: 200,
+        message: 'Project activity fetched successfully',
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to fetch project activity' };
+      return { 
+        success: false, 
+        message: 'Failed to fetch project activity',
+        statusCode: 500,
+        data: [] as ProjectActivity[],
+        errors: []
+      };
     }
   }
 
@@ -112,36 +158,84 @@ export class AdminService {
         lastChecked: new Date().toISOString()
       };
 
-      return { success: true, data: mockHealth };
+      return { 
+        success: true, 
+        data: mockHealth,
+        statusCode: 200,
+        message: 'System health fetched successfully',
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to fetch system health' };
+      return { 
+        success: false, 
+        message: 'Failed to fetch system health',
+        statusCode: 500,
+        data: {} as SystemHealth,
+        errors: []
+      };
     }
   }
 
   static async suspendUser(userId: number): Promise<ApiResponse<void>> {
     try {
       console.log('Suspending user:', userId);
-      return { success: true };
+      return { 
+        success: true,
+        statusCode: 200,
+        message: 'User suspended successfully',
+        data: undefined,
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to suspend user' };
+      return { 
+        success: false, 
+        message: 'Failed to suspend user',
+        statusCode: 500,
+        data: undefined,
+        errors: []
+      };
     }
   }
 
   static async deleteProject(projectId: number): Promise<ApiResponse<void>> {
     try {
       console.log('Deleting project:', projectId);
-      return { success: true };
+      return { 
+        success: true,
+        statusCode: 200,
+        message: 'Project deleted successfully',
+        data: undefined,
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to delete project' };
+      return { 
+        success: false, 
+        message: 'Failed to delete project',
+        statusCode: 500,
+        data: undefined,
+        errors: []
+      };
     }
   }
 
   static async performBackup(): Promise<ApiResponse<void>> {
     try {
       console.log('Performing system backup');
-      return { success: true };
+      return { 
+        success: true,
+        statusCode: 200,
+        message: 'Backup completed successfully',
+        data: undefined,
+        errors: []
+      };
     } catch (error) {
-      return { success: false, message: 'Failed to perform backup' };
+      return { 
+        success: false, 
+        message: 'Failed to perform backup',
+        statusCode: 500,
+        data: undefined,
+        errors: []
+      };
     }
   }
 }

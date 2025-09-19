@@ -14,8 +14,8 @@ import { ChatService } from '../services/ChatService';
 import { ChatRoomList } from '../components/Chat/ChatRoomList';
 import { Message } from '../components/Chat/Message';
 import { MessageInput } from '../components/Chat/MessageInput';
-import type { ChatRoom, ChatMessage } from '../types/chat';
 import { useAuth } from '../contexts/AuthContext';
+import type { ChatMessage, ChatRoom } from '../types/interface';
 
 const Chat: React.FC = () => {
   const { user } = useAuth();

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Send, Paperclip, Smile, X } from 'lucide-react';
-import type { ChatMessage } from '../../types/chat';
+import type { ChatMessage } from '../../types/interface';
 
 interface MessageInputProps {
   onSendMessage: (content: string, type: 'text' | 'file') => void;
