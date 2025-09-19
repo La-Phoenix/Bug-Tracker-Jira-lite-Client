@@ -9,7 +9,9 @@ import {
   X,
   BarChart3,
   Tag,
-  Clock
+  Clock,
+  MessageSquare,
+  Shield
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -18,6 +20,12 @@ interface SidebarProps {
 }
 
 const sidebarItems = [
+  ...(user?.role === 'Admin' ? [{
+    name: 'Admin',
+    path: '/admin',
+    icon: Shield,
+    description: 'Admin dashboard'
+  }] : []),
   { 
     name: 'Dashboard', 
     path: '/dashboard', 
@@ -35,6 +43,12 @@ const sidebarItems = [
     path: '/projects', 
     icon: FolderOpen,
     description: 'Project management'
+  },
+  { 
+    name: 'Chat', 
+    path: '/chat', 
+    icon: MessageSquare,
+    description: 'Team communication'
   },
   { 
     name: 'Reports', 

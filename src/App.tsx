@@ -12,6 +12,7 @@ import Projects from './pages/Projects'
 import Reports from './pages/Reports'
 import Activity from './pages/Activity'
 import Labels from './pages/Labels'
+import Chat from './pages/Chat'
 import { useAuth } from './contexts/AuthContext'
 import { AuthLoader } from './components/AuthLoader'
 
@@ -65,6 +66,14 @@ const App = () => {
           element={
             <PrivateRoute>
               <Settings />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <PrivateRoute>
+              <Chat />
             </PrivateRoute>
           }
         />
