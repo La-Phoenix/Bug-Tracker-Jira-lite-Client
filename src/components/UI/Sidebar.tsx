@@ -13,13 +13,19 @@ import {
   MessageSquare,
   Shield
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
 }
 
-const sidebarItems = [
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
+  const location = useLocation();
+  const { user } = useAuth();
+
+  const sidebarItems = [
   ...(user?.role === 'Admin' ? [{
     name: 'Admin',
     path: '/admin',
@@ -82,8 +88,6 @@ const sidebarItems = [
   },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
-  const location = useLocation();
 
   return (
     <>

@@ -3,7 +3,7 @@ import {
   MessageSquare,
   Plus,
   Search,
-  Settings,
+  // Settings,
   Users,
   Phone,
   Video,
@@ -14,11 +14,11 @@ import { ChatService } from '../services/ChatService';
 import { ChatRoomList } from '../components/Chat/ChatRoomList';
 import { Message } from '../components/Chat/Message';
 import { MessageInput } from '../components/Chat/MessageInput';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext';
 import type { ChatMessage, ChatRoom } from '../types/interface';
 
 const Chat: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);

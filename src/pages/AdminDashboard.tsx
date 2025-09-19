@@ -8,11 +8,11 @@ import {
   Server,
   AlertTriangle,
   CheckCircle,
-  TrendingUp,
+  // TrendingUp,
   Database,
-  Clock,
+  // Clock,
   RefreshCw,
-  Settings,
+  // Settings,
   Download,
   UserX,
   Trash2,
@@ -20,15 +20,15 @@ import {
   MoreVertical,
   Cpu,
   HardDrive,
-  Zap,
+  // Zap,
   Globe
 } from 'lucide-react';
 import { AdminService } from '../services/AdminService';
 import type { AdminStats, SystemActivity, UserActivity, ProjectActivity, SystemHealth } from '../types/interface';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext';
 
 const AdminDashboard: React.FC = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [systemActivity, setSystemActivity] = useState<SystemActivity[]>([]);
   const [userActivity, setUserActivity] = useState<UserActivity[]>([]);

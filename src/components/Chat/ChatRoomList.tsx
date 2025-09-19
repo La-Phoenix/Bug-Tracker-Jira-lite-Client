@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Users, Folder, Hash, UserCheck } from 'lucide-react';
+import { Users, Folder, Hash, UserCheck } from 'lucide-react';
 import type { ChatRoom } from '../../types/interface';
 
 interface ChatRoomListProps {
