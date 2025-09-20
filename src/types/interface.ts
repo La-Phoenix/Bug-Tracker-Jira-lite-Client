@@ -99,12 +99,16 @@ export interface UpdateIssueRequest {
 export interface ChatRoom {
   id: number;
   name: string;
-  type: 'direct' | 'group' | 'project';
+  type: 'direct' | 'group' | 'project' | 'ai_assistant';
   description?: string;
   projectId?: number;
   participants: ChatParticipant[];
   lastMessage?: ChatMessage;
   unreadCount: number;
+  isTyping?: string[]; // User IDs currently typing
+  isPinned?: boolean;
+  isMuted?: boolean;
+  avatar?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,9 +117,11 @@ export interface ChatParticipant {
   userId: number;
   userName: string;
   userEmail: string;
-  role: 'Admin' | 'Member';
+  avatar?: string;
+  role: 'admin' | 'moderator' | 'member';
   isOnline: boolean;
   lastSeen?: string;
+  status?: 'available' | 'busy' | 'away' | 'invisible';
 }
 
 export interface ChatMessage {
@@ -123,14 +129,27 @@ export interface ChatMessage {
   roomId: number;
   senderId: number;
   senderName: string;
+  senderAvatar?: string;
   content: string;
-  type: 'text' | 'file' | 'image' | 'system';
+  type: 'text' | 'file' | 'image' | 'system' | 'voice' | 'video_call' | 'audio_call';
   fileUrl?: string;
   fileName?: string;
-  replyTo?: number;
+  fileSize?: number;
+  duration?: number; // for voice messages
+  replyTo?: ChatMessage;
+  mentions?: number[];
+  reactions?: MessageReaction[];
   isEdited: boolean;
+  isDeleted?: boolean;
+  readBy?: number[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MessageReaction {
+  emoji: string;
+  users: number[];
+  count: number;
 }
 
 export interface CreateChatRoomRequest {
@@ -139,16 +158,17 @@ export interface CreateChatRoomRequest {
   description?: string;
   projectId?: number;
   participantIds: number[];
+  avatar?: string;
 }
 
 export interface SendMessageRequest {
   roomId: number;
   content: string;
-  type: 'text' | 'file' | 'image';
+  type: 'text' | 'file' | 'image' | 'voice';
   replyTo?: number;
+  mentions?: number[];
   fileData?: File;
 }
-
 // Admin
 export interface AdminStats {
   totalUsers: number;
