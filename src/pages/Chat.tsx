@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   MessageSquare,
   Plus,
@@ -9,20 +9,23 @@ import {
   Info,
   MoreVertical,
   ArrowLeft,
-  Settings,
   Hash,
   Bot,
   Pin,
   VolumeX,
+  Menu,
+  X,
+  AlertCircle
 } from 'lucide-react';
+import * as signalR from '@microsoft/signalr';
 import { ChatService } from '../services/ChatService';
 import { ChatRoomList } from '../components/Chat/ChatRoomList';
 import { Message } from '../components/Chat/Message';
 import { MessageInput } from '../components/Chat/MessageInput';
-import { useAuth } from '../contexts/AuthContext';
-import type { ChatMessage, ChatRoom } from '../types/interface';
 import { ChatInfo } from '../components/Chat/ChatInfo';
 import { CreateChatModal } from '../components/Chat/CreateChatModal';
+import { useAuth } from '../contexts/AuthContext';
+import type { ChatMessage, ChatRoom } from '../types/interface';
 
 const Chat: React.FC = () => {
   const { user } = useAuth();
@@ -40,38 +43,264 @@ const Chat: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'pinned'>('all');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
+  const selectedRoomRef = useRef<ChatRoom | null>(null);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
 
+  // Initialize component
   useEffect(() => {
-    loadChatRooms();
+    console.log("hey")
+    const initialize = async () => {
+      await loadChatRooms();
+      await initializeSignalR();
+    };
+    
+    initialize();
     checkMobileView();
-    window.addEventListener('resize', checkMobileView);
-    return () => window.removeEventListener('resize', checkMobileView);
+    
+    const handleResize = () => checkMobileView();
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (connection) {
+        connection.stop();
+      }
+    };
   }, []);
 
-  console.log(setTypingUsers)
+  // Load messages when room changes
+  useEffect(() => {
+  if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
+    loadMessages(selectedRoom.id);
+    
+    // Join the room via SignalR
+    ChatService.joinRoom(selectedRoom.id).catch(console.error);
+  }
+  
+  return () => {
+    if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
+      ChatService.leaveRoom(selectedRoom.id).catch(console.error);
+    }
+  };
+}, [selectedRoom, connection]);
 
   useEffect(() => {
-    if (selectedRoom) {
-      loadMessages(selectedRoom.id);
-    }
-  }, [selectedRoom]);
-
+  console.log("Messages changed:", messages);
+}, [messages]);
+  // Auto-scroll to bottom
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  const checkMobileView = () => {
+  const checkMobileView = useCallback(() => {
     const mobile = window.innerWidth < 1024;
     setIsMobileView(mobile);
-    if (!mobile) {
+    
+    // On mobile, close sidebar when room is selected
+    if (mobile && selectedRoom) {
+      setShowSidebar(false);
+    } else if (!mobile) {
       setShowSidebar(true);
+    }
+  }, [selectedRoom]);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    selectedRoomRef.current = selectedRoom;
+  }, [selectedRoom]);
+
+  const initializeSignalR = async () => {
+    try {
+      const conn = await ChatService.initializeConnection();
+      
+      // Wait for connection to be established
+      if (conn.state !== signalR.HubConnectionState.Connected) {
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+          
+          conn.onreconnected(() => {
+            clearTimeout(timeout);
+            resolve(void 0);
+          });
+          
+          if (conn.state === signalR.HubConnectionState.Connected) {
+            clearTimeout(timeout);
+            resolve(void 0);
+          }
+        });
+      }
+
+      // Clear any existing handlers to prevent duplicates
+      conn.off("MessageReceived");
+      conn.off("MessageEdited");
+      conn.off("MessageDeleted");
+      conn.off("ParticipantAdded");
+      conn.off("ParticipantRemoved");
+      conn.off("RoomUpdated");
+      conn.off("UserStartedTyping");
+      conn.off("UserStoppedTyping");
+
+      // Set up event handlers
+      setupSignalRHandlers(conn);
+      
+      setConnection(conn);
+      setLoading(false);
+      scrollToBottom();
+      setShowSidebar(false)
+      
+    } catch (error) {
+      console.error("Failed to initialize SignalR:", error);
+      setLoading(false);
     }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const setupSignalRHandlers = (conn: signalR.HubConnection) => {
+    // Message received
+    conn.on("MessageReceived", (data: { roomId: number; message: ChatMessage }) => {
+      console.log("Message received via SignalR:", data);
+      
+      setMessages(prevMessages => {
+        if (selectedRoomRef.current?.id === data.roomId) {
+          // Check if message already exists to prevent duplicates
+          const exists = prevMessages.some(msg => msg.id === data.message.id);
+          if (!exists) {
+            return [...prevMessages, data.message];
+          }
+        }
+        return prevMessages;
+      });
+
+      setRooms(prev => prev.map(room =>
+        room.id === data.roomId
+          ? {
+              ...room,
+              lastMessage: data.message,
+              unreadCount: selectedRoomRef.current?.id === data.roomId ? 0 : room.unreadCount + 1
+            }
+          : room
+      ));
+    });
+
+    // Message edited
+    conn.on("MessageEdited", (data: { roomId: number; messageId: number; content: string; editedAt: string }) => {
+      console.log("Message edited via SignalR:", data);
+      
+      setMessages(prev => prev.map(msg =>
+        msg.id === data.messageId 
+          ? { ...msg, content: data.content, isEdited: true, updatedAt: data.editedAt } 
+          : msg
+      ));
+    });
+
+    // Message deleted
+    conn.on("MessageDeleted", (data: { roomId: number; messageId: number; deletedBy: string; deletedAt: string }) => {
+      console.log("Message deleted via SignalR:", data);
+      
+      // Only update if we're in the same room
+      if (selectedRoomRef.current?.id === data.roomId) {
+        setMessages(prev => prev.map(msg => 
+          msg.id === data.messageId 
+            ? { 
+                ...msg, 
+                isDeleted: true, 
+                content: `Message deleted.`
+              }
+            : msg
+        ));
+      }
+      
+      // Update the last message in rooms list if this was the last message
+      setRooms(prev => prev.map(room => 
+        room.id === data.roomId && room.lastMessage?.id === data.messageId
+          ? { 
+              ...room, 
+              lastMessage: { 
+                ...room.lastMessage, 
+                content: "Message deleted",
+                isDeleted: true 
+              } 
+            }
+          : room
+      ));
+    });
+    // Typing events
+    conn.on("UserStartedTyping", (data: { roomId: number; userName: string, userId: number }) => {
+      if (selectedRoomRef.current?.id === data.roomId && data.userId !== user?.id) {
+        setTypingUsers(prev => {
+          if (!prev.includes(data.userName)) {
+            return [...prev, data.userName];
+          }
+          return prev;
+        });
+      }
+    });
+
+    conn.on("UserStoppedTyping", (data: { roomId: number; userName: string, userId: number }) => {
+      if (selectedRoomRef.current?.id === data.roomId) {
+        setTypingUsers(prev => prev.filter(name => name !== data.userName));
+      }
+    });
+
+    // Participant events
+    conn.on("ParticipantAdded", (data: { roomId: number; participant: any }) => {
+      console.log("Participant added via SignalR:", data);
+      
+      setRooms(prev => prev.map(room =>
+        room.id === data.roomId 
+          ? { ...room, participants: [...room.participants, data.participant] } 
+          : room
+      ));
+    });
+
+    conn.on("ParticipantRemoved", (data: { roomId: number; userId: number }) => {
+      console.log("Participant removed via SignalR:", data);
+      
+      setRooms(prev => prev.map(room =>
+        room.id === data.roomId
+          ? { ...room, participants: room.participants.filter(p => p.userId !== data.userId) }
+          : room
+      ));
+    });
+
+    // Room updated
+    conn.on("RoomUpdated", (data: { room: ChatRoom }) => {
+      console.log("Room updated via SignalR:", data);
+      
+      setRooms(prev => prev.map(room => (room.id === data.room.id ? data.room : room)));
+      if (selectedRoomRef.current?.id === data.room.id) {
+        setSelectedRoom(data.room);
+      }
+    });
+
+    // Connection events
+    conn.onreconnected(() => {
+      console.log("SignalR reconnected");
+      if (selectedRoomRef.current) {
+        ChatService.joinRoom(selectedRoomRef.current.id);
+      }
+    });
+
+    conn.onclose(() => {
+      console.log("SignalR connection closed");
+      setConnection(null);
+    });
   };
+
+  useEffect(() => {
+  if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
+
+    // Tell server which room we’re in
+    connection.invoke("JoinRoom", selectedRoom?.id);
+  }, [selectedRoom, connection]);
+
+
 
   const loadChatRooms = async () => {
     try {
@@ -81,17 +310,18 @@ const Chat: React.FC = () => {
       const response = await ChatService.getChatRooms();
       if (response.success && response.data) {
         setRooms(response.data);
-        // Auto-select first room if available and not mobile
+        console.log("Room Fetch: ", response.data)
+        
+        // Auto-select first room on desktop if no room selected
         if (response.data.length > 0 && !selectedRoom && !isMobileView) {
           setSelectedRoom(response.data[0]);
         }
+        console.log(rooms);
       } else {
         setError(response.message || 'Failed to load chat rooms');
       }
     } catch (err: any) {
       setError('An error occurred while loading chat rooms');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -101,13 +331,21 @@ const Chat: React.FC = () => {
       
       const response = await ChatService.getChatMessages(roomId);
       if (response.success && response.data) {
-        setMessages(response.data);
-        // Mark room as read
-        await ChatService.markAsRead(roomId);
-        // Update unread count in rooms list
-        setRooms(prev => prev.map(room => 
-          room.id === roomId ? { ...room, unreadCount: 0 } : room
-        ));
+        const sorted = response.data.messages.sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        setMessages(sorted || []);
+        
+        // Mark messages as read
+        if (response.data.messages && response.data.messages.length > 0) {
+          const lastMessage = response.data.messages[response.data.messages.length - 1];
+          await ChatService.markAsRead(roomId, lastMessage.id);
+          
+          // Update unread count
+          setRooms(prev => prev.map(room => 
+            room.id === roomId ? { ...room, unreadCount: 0 } : room
+          ));
+        }
       }
     } catch (err: any) {
       console.error('Error loading messages:', err);
@@ -117,18 +355,22 @@ const Chat: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, type: 'text' | 'file' | 'voice') => {
-    if (!selectedRoom) return;
+    if (!selectedRoom || !content.trim()) return;
+
+    console.log("Selected Room", selectedRoom);
+    console.log("Content: ", content);
+    console.log("Reply To: ", replyTo);
 
     try {
       const response = await ChatService.sendMessage({
         roomId: selectedRoom.id,
-        content,
+        content: content.trim(),
         type,
-        replyTo: replyTo?.id
+        replyToId: replyTo?.id
       });
 
       if (response.success && response.data) {
-        setMessages(prev => [...prev, response.data!]);
+        // Message will be added via SignalR
         setReplyTo(null);
       }
     } catch (err: any) {
@@ -136,17 +378,95 @@ const Chat: React.FC = () => {
     }
   };
 
+  // // Listen for incoming messages via SignalR
+  // useEffect(() => {
+  //   const conn = ChatService.getConnection();
+
+  //   if (conn) {
+  //     conn.on("MessageReceived", (payload) => {
+  //       console.log("New message:", payload);
+  //       setMessages(prev => [...prev, payload.message]); 
+  //     });
+  //   }
+
+  //   return () => {
+  //     conn?.off("ReceiveMessage");
+  //   };
+  // }, []);
+
+   const getRoomDisplayName = (room: ChatRoom) => {
+    if (room.type === 'direct') {
+      const otherParticipant = room.participants.find(p => p.userId !== user?.id);
+      console.log("room:", room)
+      console.log("otherParticipant:", otherParticipant)
+      return otherParticipant?.userName || 'Unknown User';
+    }
+    return room.name;
+  };
+
+  const handleEditMessage = async (messageId: number, newContent: string) => {
+    try {
+      const response = await ChatService.editMessage(messageId, newContent);
+      if (response.success) {
+        // Message will be updated via SignalR
+      }
+    } catch (err: any) {
+      console.error('Error editing message:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: number) => {
+    if (!selectedRoom) return false;
+
+    const message = messages.find(msg => msg.id === messageId);
+    if (!message) return false;
+    
+    // Check if message is too old to delete (e.g., 24 hours)
+    const messageAge = Date.now() - new Date(message.createdAt).getTime();
+    const maxDeleteTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    
+    if (messageAge > maxDeleteTime && message.senderId !== user?.id) {
+      setError('This message is too old to be deleted.');
+      return false;
+    }
+    
+    // Check if user can delete this message
+    if (message.senderId !== user?.id) {
+      // Only allow if user is admin/owner of the room
+      const userParticipant = selectedRoom.participants.find(p => p.userId === user?.id);
+      if (!userParticipant || userParticipant.role !== 'admin') {
+        setError('You can only delete your own messages.');
+        return false;
+      }
+    }
+
+    try {
+      const response = await ChatService.deleteMessage(messageId, selectedRoom?.id);
+      if (response.success) {
+        // Message will be removed via SignalR
+        return true;
+      }
+    } catch (err: any) {
+      console.error('Error deleting message:', err);
+    }
+    return false;
+  };
+
   const handleRoomSelect = (room: ChatRoom) => {
     setSelectedRoom(room);
     setReplyTo(null);
+    setTypingUsers([]);
+    
     if (isMobileView) {
       setShowSidebar(false);
     }
   };
 
   const handleBackToSidebar = () => {
-    setSelectedRoom(null);
-    setShowSidebar(true);
+    if (isMobileView) {
+      setSelectedRoom(null);
+      setShowSidebar(true);
+    }
   };
 
   const toggleMute = async (roomId: number) => {
@@ -172,6 +492,22 @@ const Chat: React.FC = () => {
       }
     }
   };
+
+  const handleTyping = useCallback(() => {
+    if (selectedRoom && connection) {
+      ChatService.startTyping(selectedRoom.id);
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Stop typing after 2 seconds of inactivity
+      typingTimeoutRef.current = setTimeout(() => {
+        ChatService.stopTyping(selectedRoom.id);
+      }, 2000);
+    }
+  }, [selectedRoom, connection]);
 
   const filteredRooms = rooms.filter(room => {
     const matchesSearch = room.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -233,97 +569,109 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex overflow-hidden">
+     <div className="h-[100%] bg-gray-50 dark:bg-gray-900 flex">
+      {/* Mobile Menu Button */}
+      {isMobileView && selectedRoom && (
+        <button
+          onClick={() => setShowSidebar(true)}
+          className="fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+        >
+          <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+        </button>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 z-50">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+            <span className="text-red-700 dark:text-red-300 text-sm">{error}</span>
+          </div>
+        </div>
+      )}
+
+
       {/* Sidebar */}
-      <div className={`${
-        isMobileView 
-          ? `fixed inset-y-0 left-0 z-50 w-full sm:w-80 transform transition-transform duration-300 ${
+      <div className={`
+        ${isMobileView 
+          ? `fixed inset-y-0 left-0 z-40 w-full max-w-sm transform transition-transform duration-300 ease-in-out ${
               showSidebar ? 'translate-x-0' : '-translate-x-full'
             }`
-          : 'w-80'
-      } bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col`}>
+          : 'w-80 flex-shrink-0'
+        } 
+        bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full
+      `}>
         
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <MessageSquare className="h-6 w-6 text-blue-600" />
               Chat
             </h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="New chat"
               >
                 <Plus className="h-5 w-5" />
               </button>
-              <button
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors lg:hidden"
-                title="Settings"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
+              {isMobileView && (
+                <button
+                  onClick={() => setShowSidebar(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
 
           {/* Search */}
           <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder="Search conversations..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                activeFilter === 'all'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setActiveFilter('unread')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                activeFilter === 'unread'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-            >
-              Unread
-            </button>
-            <button
-              onClick={() => setActiveFilter('pinned')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                activeFilter === 'pinned'
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-              }`}
-            >
-              Pinned
-            </button>
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {['all', 'unread', 'pinned'].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter as typeof activeFilter)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${
+                  activeFilter === filter
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* Room List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
           {error ? (
-            <div className="text-center p-4">
-              <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+            <div className="text-center p-6">
+              <div className="text-red-500 dark:text-red-400 mb-2">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-medium">Failed to load chats</p>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{error}</p>
               <button
                 onClick={loadChatRooms}
-                className="mt-2 text-blue-600 dark:text-blue-400 hover:underline text-sm"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
-                Try again
+                Try Again
               </button>
             </div>
           ) : (
@@ -334,6 +682,7 @@ const Chat: React.FC = () => {
               onToggleMute={toggleMute}
               onTogglePin={togglePin}
               loading={loading}
+              currentUserId={user!.id}
             />
           )}
         </div>
@@ -342,43 +691,45 @@ const Chat: React.FC = () => {
       {/* Mobile Overlay */}
       {isMobileView && showSidebar && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          className="fixed inset-0 bg-black bg-opacity-50 z-30"
           onClick={() => setShowSidebar(false)}
         />
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {isMobileView && (
                   <button
                     onClick={handleBackToSidebar}
-                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                 )}
                 
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                   {selectedRoom.avatar ? (
                     <img src={selectedRoom.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
-                    selectedRoom.name.charAt(0).toUpperCase()
+                    getRoomDisplayName(selectedRoom).charAt(0).toUpperCase()
                   )}
                 </div>
                 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                      {selectedRoom.name}
+                      {getRoomDisplayName(selectedRoom) || "Unknown User"}
                     </h2>
-                    {getRoomTypeIcon(selectedRoom)}
-                    {selectedRoom.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
-                    {selectedRoom.isMuted && <VolumeX className="h-4 w-4 text-gray-400" />}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {getRoomTypeIcon(selectedRoom)}
+                      {selectedRoom.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
+                      {selectedRoom.isMuted && <VolumeX className="h-4 w-4 text-gray-400" />}
+                    </div>
                   </div>
                   
                   <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -399,7 +750,7 @@ const Chat: React.FC = () => {
                   
                   {/* Typing Indicator */}
                   {typingUsers.length > 0 && (
-                    <div className="text-xs text-blue-500 italic">
+                    <div className="text-xs text-blue-500 italic animate-pulse">
                       {typingUsers.length === 1 
                         ? `${typingUsers[0]} is typing...`
                         : `${typingUsers.length} people are typing...`
@@ -413,13 +764,13 @@ const Chat: React.FC = () => {
                 {selectedRoom.type !== 'ai_assistant' && (
                   <>
                     <button 
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Voice call"
                     >
                       <Phone className="h-5 w-5" />
                     </button>
                     <button 
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Video call"
                     >
                       <Video className="h-5 w-5" />
@@ -429,14 +780,18 @@ const Chat: React.FC = () => {
                 
                 <button 
                   onClick={() => setShowChatInfo(!showChatInfo)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className={`p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                    showChatInfo 
+                      ? 'text-blue-600 dark:text-blue-400' 
+                      : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                  }`}
                   title="Chat info"
                 >
                   <Info className="h-5 w-5" />
                 </button>
                 
                 <button 
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="More options"
                 >
                   <MoreVertical className="h-5 w-5" />
@@ -444,81 +799,103 @@ const Chat: React.FC = () => {
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
+            {/* Messages Area */}
+             <div className="flex-1 min-h-0 overflow-hidden">
               {messagesLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
+                  </div>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
+                <div className="h-full flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
+                  <div className="text-center max-w-md">
                     <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                       {getRoomTypeIcon(selectedRoom)}
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       Start the conversation
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400 max-w-sm">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
                       {selectedRoom.type === 'ai_assistant' 
-                        ? 'Ask me anything about your project or get help with bug tracking!'
-                        : 'Send your first message to get the conversation started.'
+                        ? 'Ask me anything about your project, get help with bug tracking, or request assistance with development tasks!'
+                        : 'Send your first message to get the conversation started with your team.'
                       }
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="p-4 space-y-1">
-                  {messages.map((message) => (
-                    <Message
-                      key={message.id}
-                      message={message}
-                      currentUserId={user?.id || 0}
-                      onReply={setReplyTo}
+                <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
+                  {/* Messages Scroll Area */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-2 ultra-thin-scrollbar">
+                    {messages.map((message) => (
+                      <Message
+                        key={message.id}
+                        message={message}
+                        currentUserId={user?.id || 0}
+                        onReply={setReplyTo}
+                        onEdit={handleEditMessage}
+                        onDelete={handleDeleteMessage}
+                      />
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Sticky Input */}
+                  <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                    <MessageInput
+                      onSendMessage={handleSendMessage}
+                      onTyping={handleTyping}
+                      replyTo={replyTo ? {
+                        id: replyTo.id,
+                        content: replyTo.content,
+                        senderName: replyTo.senderName
+                      } : undefined}
+                      onCancelReply={() => setReplyTo(null)}
+                      placeholder={
+                        selectedRoom.type === 'ai_assistant' 
+                          ? 'Ask me anything...'
+                          : 'Type a message...'
+                      }
                     />
-                  ))}
-                  <div ref={messagesEndRef} />
+                  </div>
                 </div>
               )}
             </div>
-
-            {/* Message Input */}
-            <MessageInput
-              onSendMessage={handleSendMessage}
-              replyTo={replyTo || undefined}
-              onCancelReply={() => setReplyTo(null)}
-              placeholder={
-                selectedRoom.type === 'ai_assistant' 
-                  ? 'Ask me anything...'
-                  : 'Type a message...'
-              }
-            />
           </>
         ) : (
           /* No Room Selected */
-          <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+          <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-8">
             {isMobileView ? (
-              <div className="text-center p-8">
-                <button
-                  onClick={() => setShowSidebar(true)}
-                  className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  Select a Chat
-                </button>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Choose a conversation to start chatting
-                </p>
-              </div>
-            ) : (
               <div className="text-center">
                 <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                   <MessageSquare className="h-8 w-8 text-gray-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Welcome to Chat
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-sm text-sm">
+                  Select a conversation from the menu to start chatting with your team.
+                </p>
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  View Conversations
+                </button>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MessageSquare className="h-10 w-10 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-3">
                   Select a conversation
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  Choose a chat room from the sidebar to start messaging
+                <p className="text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
+                  Choose a chat room from the sidebar to start messaging with your team, 
+                  or create a new conversation to get started.
                 </p>
               </div>
             )}
@@ -527,13 +904,27 @@ const Chat: React.FC = () => {
       </div>
 
       {/* Chat Info Sidebar */}
-      {showChatInfo && selectedRoom && (
+      {showChatInfo && selectedRoom && !isMobileView && (
         <ChatInfo
           room={selectedRoom}
           onClose={() => setShowChatInfo(false)}
           onToggleMute={() => toggleMute(selectedRoom.id)}
           onTogglePin={() => togglePin(selectedRoom.id)}
         />
+      )}
+
+      {/* Mobile Chat Info Modal */}
+      {showChatInfo && selectedRoom && isMobileView && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
+          <div className="bg-white dark:bg-gray-800 w-full h-[90vh] rounded-t-xl">
+            <ChatInfo
+              room={selectedRoom}
+              onClose={() => setShowChatInfo(false)}
+              onToggleMute={() => toggleMute(selectedRoom.id)}
+              onTogglePin={() => togglePin(selectedRoom.id)}
+            />
+          </div>
+        </div>
       )}
 
       {/* Create Chat Modal */}
@@ -544,6 +935,9 @@ const Chat: React.FC = () => {
             setRooms(prev => [newRoom, ...prev]);
             setSelectedRoom(newRoom);
             setShowCreateModal(false);
+            if (isMobileView) {
+              setShowSidebar(false);
+            }
           }}
         />
       )}

@@ -1,314 +1,209 @@
-import type { ApiResponse } from '../types/interface';
-import type { ChatRoom, ChatMessage, CreateChatRoomRequest, SendMessageRequest } from '../types/interface';
+import * as signalR from '@microsoft/signalr';
+import type { 
+  ChatRoom, 
+  ChatMessage, 
+  CreateChatRoomRequest,
+  SendMessageRequest,
+  ApiResponse 
+} from '../types/interface';
 
 export class ChatService {
-  // private static baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+  private static baseUrl = import.meta.env.VITE_SERVER_API_URL || 'http://localhost:8080/api';
+  private static connection: signalR.HubConnection | null = null;
 
-  // Get chat rooms with different types
-  static async getChatRooms(): Promise<ApiResponse<ChatRoom[]>> {
+  // Initialize SignalR connection
+  static async initializeConnection(): Promise<signalR.HubConnection> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      return this.connection;
+    }
+
+    if (this.connection?.state === signalR.HubConnectionState.Connecting || 
+        this.connection?.state === signalR.HubConnectionState.Reconnecting) {
+      // Wait for existing connection attempt to complete
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
+        
+        const checkState = () => {
+          if (this.connection?.state === signalR.HubConnectionState.Connected) {
+            clearTimeout(timeout);
+            resolve(this.connection);
+          } else if (this.connection?.state === signalR.HubConnectionState.Disconnected) {
+            clearTimeout(timeout);
+            reject(new Error('Connection failed'));
+          } else {
+            setTimeout(checkState, 100);
+          }
+        };
+        
+        checkState();
+      });
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    this.connection = new signalR.HubConnectionBuilder()
+      .withUrl(`${this.baseUrl.replace('/api', '')}/chatHub`, {
+        accessTokenFactory: () => token,
+        skipNegotiation: true,
+        transport: signalR.HttpTransportType.WebSockets
+      })
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Information)
+      .build();
+
     try {
-      const mockRooms: ChatRoom[] = [
-        {
-          id: 1,
-          name: 'AI Assistant',
-          type: 'ai_assistant',
-          description: 'Get help with your projects and tasks',
-          participants: [
-            { 
-              userId: 999, 
-              userName: 'AI Assistant', 
-              userEmail: 'ai@bugtrackr.com', 
-              avatar: '', 
-              role: 'admin', 
-              isOnline: true,
-              status: 'available'
-            }
-          ],
-          unreadCount: 0,
-          isPinned: true,
-          isMuted: false,
-          createdAt: '2024-01-10T09:00:00Z',
-          updatedAt: '2024-01-15T14:30:00Z'
-        },
-        {
-          id: 2,
-          name: 'Project Team',
-          type: 'group',
-          description: 'Main project discussion',
-          participants: [
-            { userId: 1, userName: 'John Doe', userEmail: 'john@example.com', role: 'admin', isOnline: true, status: 'available' },
-            { userId: 2, userName: 'Jane Smith', userEmail: 'jane@example.com', role: 'member', isOnline: false, lastSeen: '2024-01-15T10:30:00Z', status: 'away' },
-            { userId: 3, userName: 'Mike Wilson', userEmail: 'mike@example.com', role: 'member', isOnline: true, status: 'busy' }
-          ],
-          unreadCount: 3,
-          isPinned: false,
-          isMuted: false,
-          createdAt: '2024-01-10T09:00:00Z',
-          updatedAt: '2024-01-15T14:30:00Z',
-          lastMessage: {
-            id: 1,
-            roomId: 2,
-            senderId: 2,
-            senderName: 'Jane Smith',
-            content: 'Great work on the latest update!',
-            type: 'text',
-            isEdited: false,
-            createdAt: '2024-01-15T14:30:00Z',
-            updatedAt: '2024-01-15T14:30:00Z'
-          }
-        },
-        {
-          id: 3,
-          name: 'Sarah Johnson',
-          type: 'direct',
-          participants: [
-            { userId: 4, userName: 'Sarah Johnson', userEmail: 'sarah@example.com', role: 'member', isOnline: true, status: 'available' }
-          ],
-          unreadCount: 1,
-          isPinned: false,
-          isMuted: false,
-          createdAt: '2024-01-12T09:00:00Z',
-          updatedAt: '2024-01-15T16:00:00Z',
-          lastMessage: {
-            id: 2,
-            roomId: 3,
-            senderId: 4,
-            senderName: 'Sarah Johnson',
-            content: 'Can we schedule a meeting tomorrow?',
-            type: 'text',
-            isEdited: false,
-            createdAt: '2024-01-15T16:00:00Z',
-            updatedAt: '2024-01-15T16:00:00Z'
-          }
-        },
-        {
-          id: 4,
-          name: 'BugTracker Pro Development',
-          type: 'project',
-          description: 'Development discussions for BugTracker Pro',
-          projectId: 1,
-          participants: [
-            { userId: 1, userName: 'John Doe', userEmail: 'john@example.com', role: 'admin', isOnline: true, status: 'available' },
-            { userId: 5, userName: 'Alex Chen', userEmail: 'alex@example.com', role: 'member', isOnline: false, status: 'invisible' }
-          ],
-          unreadCount: 0,
-          isPinned: false,
-          isMuted: true,
-          createdAt: '2024-01-08T09:00:00Z',
-          updatedAt: '2024-01-14T11:20:00Z'
-        }
-      ];
-
-      return { 
-        success: true, 
-        data: mockRooms,
-        statusCode: 200,
-        message: 'Chat rooms fetched successfully',
-        errors: []
-      };
+      await this.connection.start();
+      console.log('SignalR connection established');
     } catch (error) {
+      console.error('Error establishing SignalR connection:', error);
+      this.connection = null;
+      throw error;
+    }
+
+    return this.connection;
+  }
+
+  static getConnection(): signalR.HubConnection | null {
+    return this.connection;
+  }
+
+  private static async makeRequest<T>(
+    endpoint: string, 
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        ...options,
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
       return { 
         success: false, 
-        message: 'Failed to fetch chat rooms',
         statusCode: 500,
-        data: [] as ChatRoom[],
-        errors: []
-      };
+        message: 'Network error occurred',
+        data: undefined,
+        errors: [error instanceof Error ? error.message : "Unknown error"],
+      } as ApiResponse<T>;
     }
+  }
+
+  static async getChatRooms(): Promise<ApiResponse<ChatRoom[]>> {
+    return this.makeRequest<ChatRoom[]>('/chat/rooms');
   }
 
   static async createChatRoom(request: CreateChatRoomRequest): Promise<ApiResponse<ChatRoom>> {
-    try {
-      console.log('Creating chat room:', request);
-      const mockRoom: ChatRoom = {
-        id: Date.now(),
-        name: request.name,
-        type: request.type,
-        description: request.description,
-        projectId: request.projectId,
-        participants: [],
-        unreadCount: 0,
-        isPinned: false,
-        isMuted: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      return { 
-        success: true, 
-        data: mockRoom,
-        statusCode: 201,
-        message: 'Chat room created successfully',
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to create chat room',
-        statusCode: 500,
-        data: {} as ChatRoom,
-        errors: []
-      };
-    }
+    return this.makeRequest<ChatRoom>('/chat/rooms', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 
-  static async getChatMessages(roomId: number): Promise<ApiResponse<ChatMessage[]>> {
-    try {
-      // Mock messages based on room type
-      let mockMessages: ChatMessage[] = [];
-      
-      if (roomId === 1) { // AI Assistant
-        mockMessages = [
-          {
-            id: 1,
-            roomId,
-            senderId: 999,
-            senderName: 'AI Assistant',
-            content: 'Hello! I\'m your AI assistant. I can help you with:\n\n• Analyzing bug reports\n• Suggesting priorities\n• Finding similar issues\n• Project insights\n\nWhat would you like help with today?',
-            type: 'text',
-            isEdited: false,
-            createdAt: '2024-01-15T09:00:00Z',
-            updatedAt: '2024-01-15T09:00:00Z'
-          }
-        ];
-      } else {
-        mockMessages = [
-          {
-            id: 1,
-            roomId,
-            senderId: 1,
-            senderName: 'John Doe',
-            content: 'Hello everyone! Let\'s discuss the upcoming sprint.',
-            type: 'text',
-            isEdited: false,
-            createdAt: '2024-01-15T09:00:00Z',
-            updatedAt: '2024-01-15T09:00:00Z'
-          },
-          {
-            id: 2,
-            roomId,
-            senderId: 2,
-            senderName: 'Jane Smith',
-            content: 'Great work on the latest update!',
-            type: 'text',
-            isEdited: false,
-            createdAt: '2024-01-15T14:30:00Z',
-            updatedAt: '2024-01-15T14:30:00Z'
-          }
-        ];
+  static async getChatMessages(
+    roomId: number, 
+    page = 1, 
+    limit = 50
+  ): Promise<ApiResponse<{ messages: ChatMessage[]; pagination: any }>> {
+    return this.makeRequest<{ messages: ChatMessage[]; pagination: any }>(
+      `/chat/rooms/${roomId}/messages?page=${page}&limit=${limit}`
+    );
+  }
+
+  static async sendMessage(request: SendMessageRequest & { roomId: number }): Promise<ApiResponse<ChatMessage>> {
+    const { roomId, ...body } = request;
+    return this.makeRequest<ChatMessage>(`/chat/rooms/${roomId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  static async editMessage(messageId: number, content: string): Promise<ApiResponse<ChatMessage>> {
+    return this.makeRequest<ChatMessage>(`/chat/messages/${messageId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  static async deleteMessage(messageId: number, roomId: number ): Promise<ApiResponse<string>> {
+    return this.makeRequest<string>(`/chat/messages/${messageId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({roomId})
+    });
+  }
+
+  static async togglePin(roomId: number, isPinned: boolean): Promise<ApiResponse<string>> {
+    return this.makeRequest<string>(`/chat/rooms/${roomId}/pin`, {
+      method: 'PUT',
+      body: JSON.stringify({ isPinned }),
+    });
+  }
+
+  static async toggleMute(roomId: number, isMuted: boolean): Promise<ApiResponse<string>> {
+    return this.makeRequest<string>(`/chat/rooms/${roomId}/mute`, {
+      method: 'PUT',
+      body: JSON.stringify({ isMuted }),
+    });
+  }
+
+  static async markAsRead(roomId: number, lastMessageId?: number): Promise<ApiResponse<string>> {
+    return this.makeRequest<string>(`/chat/messages/${lastMessageId || 0}/read`, {
+      method: 'POST',
+      body: JSON.stringify({ roomId, lastMessageId }),
+    });
+  }
+
+  static async searchMessages(params: {
+    query: string;
+    roomId?: number;
+    type?: string;
+    fromDate?: string;
+    toDate?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<any>> {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
       }
+    });
+    
+    return this.makeRequest<any>(`/chat/search?${queryParams}`);
+  }
 
-      return { 
-        success: true, 
-        data: mockMessages,
-        statusCode: 200,
-        message: 'Messages fetched successfully',
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to fetch messages',
-        statusCode: 500,
-        data: [] as ChatMessage[],
-        errors: []
-      };
+  // SignalR helper methods
+  static async joinRoom(roomId: number): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('JoinRoom', roomId);
     }
   }
 
-  static async sendMessage(request: SendMessageRequest): Promise<ApiResponse<ChatMessage>> {
-    try {
-      console.log('Sending message:', request);
-      const mockMessage: ChatMessage = {
-        id: Date.now(),
-        roomId: request.roomId,
-        senderId: 1, // Current user ID
-        senderName: 'Current User',
-        content: request.content,
-        type: request.type,
-        isEdited: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      return { 
-        success: true, 
-        data: mockMessage,
-        statusCode: 201,
-        message: 'Message sent successfully',
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to send message',
-        statusCode: 500,
-        data: {} as ChatMessage,
-        errors: []
-      };
+  static async leaveRoom(roomId: number): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('LeaveRoom', roomId);
     }
   }
 
-  static async markAsRead(roomId: number): Promise<ApiResponse<void>> {
-    try {
-      console.log('Marking room as read:', roomId);
-      return { 
-        success: true,
-        statusCode: 200,
-        message: 'Marked as read successfully',
-        data: undefined,
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to mark as read',
-        statusCode: 500,
-        data: undefined,
-        errors: []
-      };
+  static async startTyping(roomId: number): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('StartTyping', roomId);
     }
   }
 
-  static async toggleMute(roomId: number, mute: boolean): Promise<ApiResponse<void>> {
-    try {
-      console.log(`${mute ? 'Muting' : 'Unmuting'} room:`, roomId);
-      return { 
-        success: true,
-        statusCode: 200,
-        message: `Room ${mute ? 'muted' : 'unmuted'} successfully`,
-        data: undefined,
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: `Failed to ${mute ? 'mute' : 'unmute'} room`,
-        statusCode: 500,
-        data: undefined,
-        errors: []
-      };
-    }
-  }
-
-  static async togglePin(roomId: number, pin: boolean): Promise<ApiResponse<void>> {
-    try {
-      console.log(`${pin ? 'Pinning' : 'Unpinning'} room:`, roomId);
-      return { 
-        success: true,
-        statusCode: 200,
-        message: `Room ${pin ? 'pinned' : 'unpinned'} successfully`,
-        data: undefined,
-        errors: []
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: `Failed to ${pin ? 'pin' : 'unpin'} room`,
-        statusCode: 500,
-        data: undefined,
-        errors: []
-      };
+  static async stopTyping(roomId: number): Promise<void> {
+    if (this.connection?.state === signalR.HubConnectionState.Connected) {
+      await this.connection.invoke('StopTyping', roomId);
     }
   }
 }

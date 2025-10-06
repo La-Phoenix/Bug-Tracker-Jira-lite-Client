@@ -165,7 +165,7 @@ export interface SendMessageRequest {
   roomId: number;
   content: string;
   type: 'text' | 'file' | 'image' | 'voice';
-  replyTo?: number;
+  replyToId?: number;
   mentions?: number[];
   fileData?: File;
 }

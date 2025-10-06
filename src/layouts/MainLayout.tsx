@@ -7,13 +7,17 @@ export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="h-screen flex bg-gray-50 dark:bg-gray-900 overflow-hidden custom-scrollbar">
+      {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      
-      {/* Main content - ensure it has proper left padding on large screens */}
-      <div className="lg:ml-64">
+
+      {/* Main content */}
+      <div className="flex-1 flex p-4 flex-col min-h-0 lg:ml-64">
+        {/* Header - sticky */}
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="p-6">
+
+        {/* Main content area */}
+        <main className="p-4 flex-1 min-h-0 overflow-y-auto h-[100%]">
           <Outlet />
         </main>
       </div>

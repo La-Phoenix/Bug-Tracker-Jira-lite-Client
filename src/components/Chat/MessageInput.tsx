@@ -1,25 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Send, 
-  Paperclip, 
-  Smile, 
-  X, 
-  Mic, 
-  MicOff, 
-  Image, 
-  File, 
-  AtSign,
-  Hash,
+import {
+  Send,
+  Paperclip,
+  Image,
+  Smile,
+  Mic,
+  MicOff,
+  X,
+  File,
   Bold,
   Italic,
   Code,
+  AtSign,
   MoreHorizontal
 } from 'lucide-react';
-import type { ChatMessage } from '../../types/interface';
 
 interface MessageInputProps {
   onSendMessage: (content: string, type: 'text' | 'file' | 'voice') => void;
-  replyTo?: ChatMessage;
+  onTyping?: () => void;
+  replyTo?: {
+    id: number;
+    content: string;
+    senderName: string;
+  };
   onCancelReply?: () => void;
   disabled?: boolean;
   placeholder?: string;
@@ -27,6 +30,7 @@ interface MessageInputProps {
 
 export const MessageInput: React.FC<MessageInputProps> = ({
   onSendMessage,
+  onTyping,
   replyTo,
   onCancelReply,
   disabled = false,
@@ -43,6 +47,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const recordingInterval = useRef<NodeJS.Timeout | null>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const commonEmojis = ['😀', '😂', '😍', '😎', '🤔', '👍', '👎', '❤️', '🎉', '🔥', '💯', '✅'];
 
@@ -67,16 +73,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // Close dropdowns when clicking outside
   useEffect(() => {
-    const handleClickOutside = () => {
-      if (showAttachMenu || showEmojiPicker) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(event.target as Node)) {
         setShowAttachMenu(false);
+      }
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
         setShowEmojiPicker(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showAttachMenu, showEmojiPicker]);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,13 +103,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
+    const value = e.target.value;
+    setMessage(value);
     autoResizeTextarea(e.target);
+    
+    // Trigger typing indicator
+    if (value.trim() && onTyping) {
+      onTyping();
+    }
   };
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    const newHeight = Math.min(textarea.scrollHeight, 100);
+    textarea.style.height = newHeight + 'px';
   };
 
   const resetTextareaHeight = () => {
@@ -133,7 +148,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       // const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setIsRecording(true);
       console.log('Recording started');
-      // Implement actual recording logic here
     } catch (error) {
       console.error('Error accessing microphone:', error);
     }
@@ -142,7 +156,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const stopRecording = () => {
     setIsRecording(false);
     console.log('Recording stopped');
-    // Implement stop recording and send voice message
     onSendMessage(`Voice message (${Math.floor(recordingTime / 60)}:${(recordingTime % 60).toString().padStart(2, '0')})`, 'voice');
   };
 
@@ -172,7 +185,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const newMessage = message.substring(0, start) + newText + message.substring(end);
     setMessage(newMessage);
     
-    // Focus and set cursor position
     setTimeout(() => {
       textarea.focus();
       const newCursorPos = start + newText.length;
@@ -191,7 +203,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     setMessage(newMessage);
     setShowEmojiPicker(false);
     
-    // Focus and set cursor position
     setTimeout(() => {
       textarea.focus();
       const newCursorPos = start + emoji.length;
@@ -205,8 +216,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  
   return (
-    <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="bg-white dark:bg-gray-800 relative">
       {/* Reply Preview */}
       {replyTo && (
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
@@ -223,7 +235,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             {onCancelReply && (
               <button
                 onClick={onCancelReply}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-200 dark:hover:bg-gray-600 flex-shrink-0"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -255,42 +267,35 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       {/* Formatting Toolbar */}
       {showFormatting && (
         <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => insertFormatting('bold')}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               title="Bold"
             >
               <Bold className="h-4 w-4" />
             </button>
             <button
               onClick={() => insertFormatting('italic')}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               title="Italic"
             >
               <Italic className="h-4 w-4" />
             </button>
             <button
               onClick={() => insertFormatting('code')}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               title="Code"
             >
               <Code className="h-4 w-4" />
             </button>
-            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
+            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600"></div>
             <button
               onClick={() => setMessage(prev => prev + '@')}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-700"
               title="Mention"
             >
               <AtSign className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setMessage(prev => prev + '#')}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
-              title="Channel"
-            >
-              <Hash className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -298,14 +303,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Main Input */}
       <form onSubmit={handleSubmit} className="p-4">
-        <div className="flex items-end gap-2 sm:gap-3">
+        <div className="flex items-end gap-2">
           {/* Attachment Menu */}
-          <div className="relative">
+          <div className="relative" ref={attachMenuRef}>
             <button
               type="button"
-              onClick={() => setShowAttachMenu(!showAttachMenu)}
+              onClick={() => {
+                setShowAttachMenu(!showAttachMenu);
+                setShowEmojiPicker(false);
+              }}
               disabled={disabled || isRecording}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
               title="Attach file"
             >
               <Paperclip className="h-5 w-5" />
@@ -313,20 +321,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
             {/* Attachment Menu Dropdown */}
             {showAttachMenu && (
-              <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 min-w-[150px] z-10">
+              <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2 min-w-[140px] z-20">
                 <button
+                  type="button"
                   onClick={() => imageInputRef.current?.click()}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
                 >
                   <Image className="h-4 w-4 text-blue-500" />
-                  <span className="text-sm">Image</span>
+                  <span>Image</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
                 >
                   <File className="h-4 w-4 text-green-500" />
-                  <span className="text-sm">File</span>
+                  <span>File</span>
                 </button>
               </div>
             )}
@@ -349,7 +359,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           />
 
           {/* Text Input Area */}
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-0">
             <textarea
               ref={textareaRef}
               value={message}
@@ -358,15 +368,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               placeholder={placeholder}
               disabled={disabled || isRecording}
               rows={1}
-              className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
-              style={{ minHeight: '48px', maxHeight: '120px' }}
+              className="w-full px-4 py-3 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white resize-none disabled:opacity-50 disabled:cursor-not-allowed text-sm placeholder-gray-500 dark:placeholder-gray-400"
+              style={{ minHeight: '44px', maxHeight: '100px' }}
             />
             
             {/* Formatting Toggle */}
             <button
               type="button"
               onClick={() => setShowFormatting(!showFormatting)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
               title="Formatting options"
             >
               <MoreHorizontal className="h-4 w-4" />
@@ -374,12 +384,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
 
           {/* Emoji Picker */}
-          <div className="relative">
+          <div className="relative" ref={emojiPickerRef}>
             <button
               type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              onClick={() => {
+                setShowEmojiPicker(!showEmojiPicker);
+                setShowAttachMenu(false);
+              }}
               disabled={disabled || isRecording}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
               title="Add emoji"
             >
               <Smile className="h-5 w-5" />
@@ -387,11 +400,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
             {/* Emoji Picker Dropdown */}
             {showEmojiPicker && (
-              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-10">
-                <div className="grid grid-cols-6 gap-1 w-64">
+              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 z-20">
+                <div className="grid grid-cols-6 gap-1 w-48">
                   {commonEmojis.map((emoji, index) => (
                     <button
                       key={index}
+                      type="button"
                       onClick={() => insertEmoji(emoji)}
                       className="p-2 text-lg hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                     >
@@ -404,30 +418,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           </div>
 
           {/* Voice/Send Button */}
-          {message.trim() ? (
-            <button
-              type="submit"
-              disabled={disabled}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-              title="Send message"
-            >
-              <Send className="h-5 w-5" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={disabled}
-              className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
-                isRecording 
-                  ? 'bg-red-600 text-white hover:bg-red-700' 
-                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-              }`}
-              title={isRecording ? "Stop recording" : "Record voice message"}
-            >
-              {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
-          )}
+          <div className="flex-shrink-0">
+            {message.trim() ? (
+              <button
+                type="submit"
+                disabled={disabled}
+                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Send message"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={disabled}
+                className={`p-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isRecording 
+                    ? 'bg-red-600 text-white hover:bg-red-700' 
+                    : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title={isRecording ? "Stop recording" : "Record voice message"}
+              >
+                {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>
