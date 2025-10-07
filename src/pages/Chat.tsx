@@ -53,6 +53,7 @@ const Chat: React.FC = () => {
   const selectedRoomRef = useRef<ChatRoom | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = useState<'all' | 'pinned' | 'muted' | 'unread'>('all');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
