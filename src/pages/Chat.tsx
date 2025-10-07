@@ -784,13 +784,15 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Messages Area - Scrollable */}
-            <div className="flex-1 bg-gray-50 dark:bg-gray-900 overflow-hidden">
-              <div className="h-full overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2 pb-4">
+            <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2 pb-24 sm:pb-28">
                 {messagesLoading ? (
                   <div className="flex items-center justify-center min-h-[200px]">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                        Loading messages...
+                      </p>
                     </div>
                   </div>
                 ) : messages.length === 0 ? (
@@ -803,9 +805,9 @@ const Chat: React.FC = () => {
                         Start the conversation
                       </h3>
                       <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                        {selectedRoom.type === 'ai_assistant'
-                          ? 'Ask me anything about your project...'
-                          : 'Send your first message to get the conversation started.'}
+                        {selectedRoom.type === "ai_assistant"
+                          ? "Ask me anything about your project..."
+                          : "Send your first message to get the conversation started."}
                       </p>
                     </div>
                   </div>
@@ -827,21 +829,25 @@ const Chat: React.FC = () => {
               </div>
             </div>
 
-            {/* Message Input - Fixed at bottom */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            {/* Message Input - Fixed Bottom */}
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 px-2 sm:px-4 py-2 sm:py-3">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onTyping={handleTyping}
-                replyTo={replyTo ? {
-                  id: replyTo.id,
-                  content: replyTo.content,
-                  senderName: replyTo.senderName
-                } : undefined}
+                replyTo={
+                  replyTo
+                    ? {
+                        id: replyTo.id,
+                        content: replyTo.content,
+                        senderName: replyTo.senderName,
+                      }
+                    : undefined
+                }
                 onCancelReply={() => setReplyTo(null)}
                 placeholder={
-                  selectedRoom.type === 'ai_assistant' 
-                    ? 'Ask me anything...'
-                    : 'Type a message...'
+                  selectedRoom.type === "ai_assistant"
+                    ? "Ask me anything..."
+                    : "Type a message..."
                 }
               />
             </div>

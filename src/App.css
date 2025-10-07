@@ -183,3 +183,9 @@ body {
     min-width: 44px;
   }
 }
+
+@supports (height: 100dvh) {
+  html, body, #root {
+    height: 100dvh;
+  }
+}
