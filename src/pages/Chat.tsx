@@ -48,6 +48,30 @@ const Chat: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  useEffect(() => {
+    // Helps with MIUI/Redmi keyboard viewport resizing issue
+    const chatContainer = document.querySelector('.chat-container');
+    const inputBar = document.querySelector('.chat-input-bar');
+
+    if (!window.visualViewport || !chatContainer || !inputBar) return;
+
+    const viewport = window.visualViewport;
+
+    const adjustForKeyboard = () => {
+      const bottomOffset = window.innerHeight - viewport.height - viewport.offsetTop;
+      inputBar.style.transform = bottomOffset > 0 ? `translateY(-${bottomOffset}px)` : 'translateY(0)';
+    };
+
+    viewport.addEventListener('resize', adjustForKeyboard);
+    viewport.addEventListener('scroll', adjustForKeyboard);
+
+    return () => {
+      viewport.removeEventListener('resize', adjustForKeyboard);
+      viewport.removeEventListener('scroll', adjustForKeyboard);
+    };
+  }, []);
+
+
   // Initialize component
   useEffect(() => {
     console.log("hey")
@@ -678,7 +702,7 @@ const Chat: React.FC = () => {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 chat-container">
         {selectedRoom ? (
           <>
             {/* Chat Header - Sticky */}
@@ -830,7 +854,7 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Message Input - Fixed Bottom */}
-            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 px-2 sm:px-4 py-2 sm:py-3">
+            <div className="chat-input-bar sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 px-2 sm:px-4 py-2 sm:py-3 transition-transform duration-150">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onTyping={handleTyping}
