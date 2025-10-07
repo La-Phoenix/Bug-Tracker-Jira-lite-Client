@@ -793,7 +793,7 @@ const Chat: React.FC = () => {
           </div>
 
           {/* Search */}
-          <div className="relative mb-3 sm:mb-4">
+          {/* <div className="relative mb-3 sm:mb-4">
             <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
@@ -802,10 +802,10 @@ const Chat: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
             />
-          </div>
+          </div> */}
 
           {/* Filters */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          {/* <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
             {['all', 'unread', 'pinned'].map((filter) => (
               <button
                 key={filter}
@@ -819,7 +819,7 @@ const Chat: React.FC = () => {
                 {filter.charAt(0).toUpperCase() + filter.slice(1)}
               </button>
             ))}
-          </div>
+          </div> */}
         </div>
 
         {/* Room List */}
