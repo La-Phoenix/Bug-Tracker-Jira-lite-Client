@@ -13,8 +13,9 @@ export const MainLayout = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       
-      // Auto-close sidebar on mobile when window resizes to mobile
-      if (mobile && sidebarOpen) {
+      // Only auto-close sidebar on mobile if it's currently open and we're switching from desktop to mobile
+      // Don't auto-close if user manually opened it on mobile
+      if (mobile && !isMobile && sidebarOpen) {
         setSidebarOpen(false);
       }
     };
@@ -22,7 +23,7 @@ export const MainLayout = () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [sidebarOpen]);
+  }, [isMobile, sidebarOpen]); // Add isMobile to dependencies
 
   // Close sidebar when clicking outside on mobile
   const handleSidebarClose = () => {
@@ -34,12 +35,12 @@ export const MainLayout = () => {
   return (
     <div className="h-screen flex bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* Sidebar */}
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} isMobile={isMobile} />
 
       {/* Main content wrapper - Mobile responsive */}
       <div className={`
         flex-1 flex flex-col min-h-0 min-w-0 transition-all duration-300 ease-in-out
-        ${!isMobile ? 'lg:ml-64' : ''}
+        ${!isMobile && sidebarOpen ? 'lg:ml-64' : ''}
       `}>
         
         {/* Header - Mobile optimized */}

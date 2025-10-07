@@ -48,7 +48,6 @@ const Chat: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
 
   // Initialize component
   useEffect(() => {
@@ -74,30 +73,31 @@ const Chat: React.FC = () => {
 
   // Load messages when room changes
   useEffect(() => {
-  if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
-    loadMessages(selectedRoom.id);
-    
-    // Join the room via SignalR
-    ChatService.joinRoom(selectedRoom.id).catch(console.error);
-  }
-  
-  return () => {
     if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
-      ChatService.leaveRoom(selectedRoom.id).catch(console.error);
+      loadMessages(selectedRoom.id);
+      
+      // Join the room via SignalR
+      ChatService.joinRoom(selectedRoom.id).catch(console.error);
     }
-  };
-}, [selectedRoom, connection]);
+    
+    return () => {
+      if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
+        ChatService.leaveRoom(selectedRoom.id).catch(console.error);
+      }
+    };
+  }, [selectedRoom, connection]);
 
   useEffect(() => {
-  console.log("Messages changed:", messages);
-}, [messages]);
+    console.log("Messages changed:", messages);
+  }, [messages]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const checkMobileView = useCallback(() => {
-    const mobile = window.innerWidth < 768; // Changed from 1024 to 768 for better tablet support
+    const mobile = window.innerWidth < 768;
     setIsMobileView(mobile);
     
     // On mobile, close sidebar when room is selected
@@ -110,7 +110,7 @@ const Chat: React.FC = () => {
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, []);
 
   useEffect(() => {
     selectedRoomRef.current = selectedRoom;
@@ -230,6 +230,7 @@ const Chat: React.FC = () => {
           : room
       ));
     });
+
     // Typing events
     conn.on("UserStartedTyping", (data: { roomId: number; userName: string, userId: number }) => {
       if (selectedRoomRef.current?.id === data.roomId && data.userId !== user?.id) {
@@ -294,13 +295,11 @@ const Chat: React.FC = () => {
   };
 
   useEffect(() => {
-  if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
+    if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
 
-    // Tell server which room we’re in
+    // Tell server which room we're in
     connection.invoke("JoinRoom", selectedRoom?.id);
   }, [selectedRoom, connection]);
-
-
 
   const loadChatRooms = async () => {
     try {
@@ -378,23 +377,7 @@ const Chat: React.FC = () => {
     }
   };
 
-  // // Listen for incoming messages via SignalR
-  // useEffect(() => {
-  //   const conn = ChatService.getConnection();
-
-  //   if (conn) {
-  //     conn.on("MessageReceived", (payload) => {
-  //       console.log("New message:", payload);
-  //       setMessages(prev => [...prev, payload.message]); 
-  //     });
-  //   }
-
-  //   return () => {
-  //     conn?.off("ReceiveMessage");
-  //   };
-  // }, []);
-
-   const getRoomDisplayName = (room: ChatRoom) => {
+  const getRoomDisplayName = (room: ChatRoom) => {
     if (room.type === 'direct') {
       const otherParticipant = room.participants.find(p => p.userId !== user?.id);
       console.log("room:", room)
@@ -568,7 +551,7 @@ const Chat: React.FC = () => {
     );
   }
 
-return (
+  return (
     <div className="h-screen bg-gray-50 dark:bg-gray-900 flex overflow-hidden">
       {/* Mobile Menu Button - Enhanced */}
       {isMobileView && selectedRoom && (
@@ -658,7 +641,7 @@ return (
         </div>
 
         {/* Room List - Mobile Optimized */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
           {error ? (
             <div className="text-center p-4 sm:p-6">
               <div className="text-red-500 dark:text-red-400 mb-2">
@@ -801,17 +784,17 @@ return (
               </div>
             </div>
 
-            {/* Messages Area - Mobile Optimized */}
-            <div className="flex-1 min-h-0 overflow-hidden">
+            {/* Messages Area - Fixed Layout */}
+            <div className="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900">
               {messagesLoading ? (
-                <div className="h-full flex items-center justify-center p-4">
+                <div className="flex-1 flex items-center justify-center p-4">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                     <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
                   </div>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="h-full flex items-center justify-center p-4 sm:p-8 bg-gray-50 dark:bg-gray-900">
+                <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
                   <div className="text-center max-w-xs sm:max-w-md">
                     <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       {getRoomTypeIcon(selectedRoom)}
@@ -828,9 +811,9 @@ return (
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex flex-col bg-gray-50 dark:bg-gray-900">
-                  {/* Messages Scroll Area - Mobile Optimized */}
-                  <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-1 sm:space-y-2 ultra-thin-scrollbar">
+                <div className="flex-1 overflow-y-auto scrollbar-hide pb-4">
+                  {/* Messages Container */}
+                  <div className="px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2">
                     {messages.map((message) => (
                       <Message
                         key={message.id}
@@ -843,27 +826,27 @@ return (
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
-
-                  {/* Sticky Input - Mobile Optimized */}
-                  <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                    <MessageInput
-                      onSendMessage={handleSendMessage}
-                      onTyping={handleTyping}
-                      replyTo={replyTo ? {
-                        id: replyTo.id,
-                        content: replyTo.content,
-                        senderName: replyTo.senderName
-                      } : undefined}
-                      onCancelReply={() => setReplyTo(null)}
-                      placeholder={
-                        selectedRoom.type === 'ai_assistant' 
-                          ? 'Ask me anything...'
-                          : 'Type a message...'
-                      }
-                    />
-                  </div>
                 </div>
               )}
+
+              {/* Sticky Input - Always Visible */}
+              <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <MessageInput
+                  onSendMessage={handleSendMessage}
+                  onTyping={handleTyping}
+                  replyTo={replyTo ? {
+                    id: replyTo.id,
+                    content: replyTo.content,
+                    senderName: replyTo.senderName
+                  } : undefined}
+                  onCancelReply={() => setReplyTo(null)}
+                  placeholder={
+                    selectedRoom.type === 'ai_assistant' 
+                      ? 'Ask me anything...'
+                      : 'Type a message...'
+                  }
+                />
+              </div>
             </div>
           </>
         ) : (
