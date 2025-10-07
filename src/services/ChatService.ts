@@ -4,7 +4,8 @@ import type {
   ChatMessage, 
   CreateChatRoomRequest,
   SendMessageRequest,
-  ApiResponse 
+  ApiResponse,
+  ChatParticipant
 } from '../types/interface';
 
 export class ChatService {
@@ -127,6 +128,30 @@ export class ChatService {
       body: JSON.stringify(body),
     });
   }
+  static async addParticipantsToRoom(roomId: number, userIds: number[], requesterId: number): Promise<ApiResponse<ChatParticipant[]>> {
+    return this.makeRequest<ChatMessage>(`rooms/${roomId}/participants`, {
+      method: 'POST',
+      body: JSON.stringify({
+        userIds,
+        requesterId,
+      }),
+    });
+  }
+  static async removeParticipantFromRoom(roomId: number, participantUserId: number): Promise<ApiResponse<string>> {
+    return this.makeRequest<string>(`rooms/${roomId}/participants/${participantUserId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  //Not available endpoint yet
+  // static async leaveRoom(roomId: number, userId: number): Promise<ApiResponse<void>> {
+  //   return this.makeRequest<ChatMessage>(`rooms/{roomId:int}/participants/{participantUserId:int}`, {
+  //     method: 'POST',
+  //     body: JSON.stringify({
+  //       userIds: [userId]
+  //     }),
+  //   });
+  // }
 
   static async editMessage(messageId: number, content: string): Promise<ApiResponse<ChatMessage>> {
     return this.makeRequest<ChatMessage>(`/chat/messages/${messageId}`, {

@@ -3,26 +3,28 @@ import {
   Reply,
   MoreVertical,
   Edit,
-  Smile,
   Download,
   Check,
   X,
   Trash2,
   Copy,
   Eye,
-  ExternalLink,
   FileText,
   Image as ImageIcon,
   Video as VideoIcon,
-  Music
+  Music,
+  Forward,
+  Star,
+  Flag
 } from 'lucide-react';
 import type { ChatMessage } from '../../types/interface';
+import { FilePreviewModal } from './FilePreviewModal';
 
 interface MessageProps {
   message: ChatMessage;
   currentUserId: number;
   onReply?: (message: ChatMessage) => void;
-  onEdit?: (messageId: number, content: string) => void;
+  onEdit?: (messageId: number, newContent: string) => Promise<void>;
   onDelete?: (messageId: number) => Promise<boolean>;
 }
 
@@ -34,32 +36,36 @@ export const Message: React.FC<MessageProps> = ({
   onDelete
 }) => {
   const [showActions, setShowActions] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showFilePreview, setShowFilePreview] = useState(false);
 
   const editInputRef = useRef<HTMLTextAreaElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   const isOwnMessage = message.senderId === currentUserId;
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+
+    if (showMoreMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMoreMenu]);
 
   useEffect(() => {
     if (isEditing && editInputRef.current) {
       editInputRef.current.focus();
       editInputRef.current.select();
-    }
-  }, [isEditing]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isEditing && editInputRef.current && !editInputRef.current.contains(event.target as Node)) {
-        handleCancelEdit();
-      }
-    };
-
-    if (isEditing) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isEditing]);
 
@@ -81,36 +87,36 @@ export const Message: React.FC<MessageProps> = ({
       case 'gif':
       case 'webp':
       case 'svg':
-        return <ImageIcon className="h-6 w-6 text-green-500" />;
+        return <ImageIcon className="h-5 w-5 text-blue-500" />;
       case 'mp4':
       case 'avi':
       case 'mov':
       case 'wmv':
       case 'webm':
-        return <VideoIcon className="h-6 w-6 text-red-500" />;
+        return <VideoIcon className="h-5 w-5 text-red-500" />;
       case 'mp3':
       case 'wav':
       case 'flac':
-        return <Music className="h-6 w-6 text-pink-500" />;
+        return <Music className="h-5 w-5 text-purple-500" />;
       case 'pdf':
-        return <FileText className="h-6 w-6 text-red-500" />;
+        return <FileText className="h-5 w-5 text-red-500" />;
       case 'doc':
       case 'docx':
-        return <FileText className="h-6 w-6 text-blue-500" />;
+        return <FileText className="h-5 w-5 text-blue-500" />;
       case 'xls':
       case 'xlsx':
-        return <FileText className="h-6 w-6 text-green-600" />;
+        return <FileText className="h-5 w-5 text-green-600" />;
       case 'ppt':
       case 'pptx':
-        return <FileText className="h-6 w-6 text-orange-500" />;
+        return <FileText className="h-5 w-5 text-orange-500" />;
       case 'txt':
-        return <FileText className="h-6 w-6 text-gray-500" />;
+        return <FileText className="h-5 w-5 text-gray-500" />;
       case 'zip':
       case 'rar':
       case '7z':
-        return <FileText className="h-6 w-6 text-purple-500" />;
+        return <FileText className="h-5 w-5 text-purple-500" />;
       default:
-        return <FileText className="h-6 w-6 text-gray-400" />;
+        return <FileText className="h-5 w-5 text-gray-400" />;
     }
   };
 
@@ -141,37 +147,18 @@ export const Message: React.FC<MessageProps> = ({
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error('Download failed:', error);
-      // Fallback to opening in new tab
       window.open(url, '_blank');
     }
   };
 
-  const handleFileOpen = (url: string) => {
-    window.open(url, '_blank');
+  // NOW PROPERLY USED: Image preview handler
+  const handleImagePreview = () => {
+    setShowFilePreview(true);
   };
 
-  const handleImagePreview = (url: string, fileName?: string) => {
-    // Create modal for image preview
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-    modal.onclick = () => document.body.removeChild(modal);
-    
-    const img = document.createElement('img');
-    img.src = url;
-    img.className = 'max-w-full max-h-full object-contain rounded-lg';
-    img.alt = fileName || 'Preview';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.className = 'absolute top-4 right-4 text-white text-2xl w-8 h-8 flex items-center justify-center bg-black bg-opacity-50 rounded-full hover:bg-opacity-75';
-    closeBtn.onclick = (e) => {
-      e.stopPropagation();
-      document.body.removeChild(modal);
-    };
-    
-    modal.appendChild(img);
-    modal.appendChild(closeBtn);
-    document.body.appendChild(modal);
+  // File preview handler for non-images
+  const handleFilePreview = () => {
+    setShowFilePreview(true);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -206,18 +193,38 @@ export const Message: React.FC<MessageProps> = ({
     }
   };
 
-  const cancelDelete = () => {
-    setIsDeleteModalOpen(false);
+  const handleCopyMessage = () => {
+    navigator.clipboard.writeText(message.content);
+    setShowMoreMenu(false);
+    setShowActions(false);
+  };
+
+  const handleForwardMessage = () => {
+    console.log('Forward message:', message.id);
+    setShowMoreMenu(false);
+    setShowActions(false);
+  };
+
+  const handleStarMessage = () => {
+    console.log('Star message:', message.id);
+    setShowMoreMenu(false);
+    setShowActions(false);
+  };
+
+  const handleReportMessage = () => {
+    console.log('Report message:', message.id);
+    setShowMoreMenu(false);
+    setShowActions(false);
   };
 
   return (
     <>
       <div 
-        className={`group flex gap-2 sm:gap-3 px-2 sm:px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${
+        className={`group flex gap-3 px-2 sm:px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors ${
           isOwnMessage ? 'flex-row-reverse' : ''
         }`}
         onMouseEnter={() => !isEditing && setShowActions(true)}
-        onMouseLeave={() => !isEditing && setShowActions(false)}
+        onMouseLeave={() => !isEditing && !showMoreMenu && setShowActions(false)}
       >
         {/* Avatar */}
         {!isOwnMessage && (
@@ -231,7 +238,7 @@ export const Message: React.FC<MessageProps> = ({
         )}
 
         {/* Message Content */}
-        <div className={`flex-1 max-w-xs sm:max-w-md lg:max-w-lg xl:max-w-xl ${isOwnMessage ? 'flex flex-col items-end' : ''}`}>
+        <div className={`flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[70%] sm:max-w-md lg:max-w-lg xl:max-w-xl`}>
           {/* Sender Name & Time */}
           {!isOwnMessage && (
             <div className="flex items-center gap-2 mb-1">
@@ -249,14 +256,14 @@ export const Message: React.FC<MessageProps> = ({
 
           {/* Message Bubble */}
           <div className={`relative group/message ${isOwnMessage ? 'ml-auto' : ''}`}>
-            <div className={`rounded-lg px-3 sm:px-4 py-2 sm:py-3 ${
+            <div className={`rounded-2xl px-3 sm:px-4 py-2 sm:py-3 relative shadow-sm ${
               isOwnMessage 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
+                ? 'bg-blue-600 text-white rounded-br-md' 
+                : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white rounded-bl-md'
             }`}>
               {/* Reply Context */}
               {message.replyTo && (
-                <div className={`mb-2 p-2 rounded border-l-2 text-xs ${
+                <div className={`mb-2 p-2 rounded-lg border-l-2 text-xs ${
                   isOwnMessage 
                     ? 'bg-blue-700 border-blue-300' 
                     : 'bg-gray-50 dark:bg-gray-600 border-gray-300 dark:border-gray-500'
@@ -270,7 +277,7 @@ export const Message: React.FC<MessageProps> = ({
                 </div>
               )}
 
-              {/* Text Message */}
+              {/* Text Message Content */}
               {message.type.toLowerCase() === 'text' && (
                 <div className="space-y-1">
                   {isEditing ? (
@@ -306,37 +313,42 @@ export const Message: React.FC<MessageProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="whitespace-pre-wrap break-words">
+                    <div className="whitespace-pre-wrap break-words text-sm">
                       {message.content}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* File Message */}
+              {/* File/Image Message Content */}
               {(message.type.toLowerCase() === 'file' || message.type.toLowerCase() === 'image') && (
                 <div className="space-y-2">
                   {message.type.toLowerCase() === 'image' && message.fileUrl ? (
-                    <div className="max-w-sm">
-                      <div className="relative group">
+                    <div className="max-w-xs">
+                      {/* FIXED: Now using handleImagePreview */}
+                      <div className="relative group cursor-pointer" onClick={handleImagePreview}>
                         <img 
                           src={message.fileUrl} 
                           alt={message.fileName}
-                          className="rounded-lg max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => handleImagePreview(message.fileUrl!, message.fileName)}
+                          className="rounded-lg max-h-60 w-full object-cover hover:opacity-90 transition-opacity"
                         />
-                        {/* Image overlay with actions */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleImagePreview(message.fileUrl!, message.fileName)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleImagePreview();
+                              }}
                               className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full transition-all"
                               title="Preview"
                             >
                               <Eye className="h-4 w-4 text-gray-700" />
                             </button>
                             <button
-                              onClick={() => handleFileDownload(message.fileUrl!, message.fileName!)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleFileDownload(message.fileUrl!, message.fileName!);
+                              }}
                               className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full transition-all"
                               title="Download"
                             >
@@ -352,7 +364,9 @@ export const Message: React.FC<MessageProps> = ({
                       )}
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-600 rounded-lg max-w-full sm:max-w-sm group hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors">
+                    <div className={`flex items-center gap-3 p-3 rounded-lg max-w-sm group hover:bg-opacity-80 transition-colors ${
+                      isOwnMessage ? 'bg-blue-700' : 'bg-gray-100 dark:bg-gray-600'
+                    }`}>
                       <div className="text-2xl flex-shrink-0">
                         {getAdvancedFileIcon(message.fileName || '')}
                       </div>
@@ -360,28 +374,40 @@ export const Message: React.FC<MessageProps> = ({
                         <div className="text-sm font-medium truncate" title={message.fileName}>
                           {message.fileName}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <div className={`text-xs flex items-center gap-2 ${
+                          isOwnMessage ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                        }`}>
                           <span>{formatFileSize(message.fileSize)}</span>
                           {isPreviewableFile(message.fileName || '') && (
-                            <span className="text-blue-500">• Previewable</span>
+                            <span className={isOwnMessage ? 'text-blue-200' : 'text-blue-500'}>• Previewable</span>
                           )}
                         </div>
                       </div>
                       <div className="flex gap-1">
                         <button 
                           onClick={() => handleFileDownload(message.fileUrl!, message.fileName!)}
-                          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+                          className={`p-1 transition-colors flex-shrink-0 ${
+                            isOwnMessage 
+                              ? 'text-blue-100 hover:text-white' 
+                              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                          }`}
                           title="Download"
                         >
                           <Download className="h-4 w-4" />
                         </button>
-                        <button 
-                          onClick={() => handleFileOpen(message.fileUrl!)}
-                          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                          title="Open in new tab"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </button>
+                        {isPreviewableFile(message.fileName || '') && (
+                          <button 
+                            onClick={handleFilePreview}
+                            className={`p-1 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100 ${
+                              isOwnMessage 
+                                ? 'text-blue-100 hover:text-white' 
+                                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                            }`}
+                            title="Preview"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -391,14 +417,18 @@ export const Message: React.FC<MessageProps> = ({
               {/* Voice Message */}
               {message.type.toLowerCase() === 'voice' && (
                 <div className="flex items-center gap-3 p-2">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isOwnMessage ? 'bg-blue-700' : 'bg-blue-500'
+                  }`}>
                     <Music className="h-4 w-4 text-white" />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-medium">Voice Message</div>
                     <div className="text-xs opacity-75">0:15</div>
                   </div>
-                  <button className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors">
+                  <button className={`p-2 rounded-full transition-colors ${
+                    isOwnMessage ? 'hover:bg-blue-700' : 'hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}>
                     <Download className="h-4 w-4" />
                   </button>
                 </div>
@@ -416,65 +446,114 @@ export const Message: React.FC<MessageProps> = ({
               </div>
             )}
 
-            {/* Message Actions */}
+            {/* Professional Message Actions */}
             {showActions && !isEditing && (
-              <div className={`absolute top-0 ${isOwnMessage ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-1`}>
+              <div className={`absolute top-0 ${isOwnMessage ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10`}>
                 <button
                   onClick={() => onReply?.(message)}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 rounded-l-lg"
                   title="Reply"
                 >
                   <Reply className="h-4 w-4" />
                 </button>
                 
-                {isOwnMessage && message.type.toLowerCase() === 'text' && (
+                {message.type.toLowerCase() === 'text' && (
                   <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
-                    title="Edit"
+                    onClick={handleCopyMessage}
+                    className="p-2 text-gray-500 hover:text-green-600 dark:text-gray-400 dark:hover:text-green-400 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                    title="Copy"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Copy className="h-4 w-4" />
                   </button>
                 )}
                 
-                <button
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
-                  title="Add reaction"
-                >
-                  <Smile className="h-4 w-4" />
-                </button>
-                
-                <button
-                  onClick={() => navigator.clipboard.writeText(message.content)}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
-                  title="Copy"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-                
-                {isOwnMessage && (
+                <div className="relative" ref={moreMenuRef}>
                   <button
-                    onClick={() => setIsDeleteModalOpen(true)}
-                    className="p-1.5 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
-                    title="Delete"
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700 rounded-r-lg"
+                    title="More options"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <MoreVertical className="h-4 w-4" />
                   </button>
-                )}
-                
-                <button
-                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
-                  title="More"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
+                  
+                  {/* Professional More Menu */}
+                  {showMoreMenu && (
+                    <div className={`absolute ${isOwnMessage ? 'right-0' : 'left-0'} top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 z-20`}>
+                      {isOwnMessage && message.type.toLowerCase() === 'text' && (
+                        <button
+                          onClick={() => {
+                            setIsEditing(true);
+                            setShowMoreMenu(false);
+                            setShowActions(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit message
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={handleForwardMessage}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Forward className="h-4 w-4" />
+                        Forward
+                      </button>
+                      
+                      <button
+                        onClick={handleStarMessage}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Star className="h-4 w-4" />
+                        Star message
+                      </button>
+                      
+                      <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                      
+                      {!isOwnMessage && (
+                        <button
+                          onClick={handleReportMessage}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                        >
+                          <Flag className="h-4 w-4" />
+                          Report message
+                        </button>
+                      )}
+                      
+                      {isOwnMessage && (
+                        <button
+                          onClick={() => {
+                            setIsDeleteModalOpen(true);
+                            setShowMoreMenu(false);
+                            setShowActions(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete message
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Simple Delete Confirmation Modal */}
+      {/* File Preview Modal */}
+      {showFilePreview && message.fileUrl && (
+        <FilePreviewModal
+          isOpen={showFilePreview}
+          onClose={() => setShowFilePreview(false)}
+          fileUrl={message.fileUrl}
+          fileName={message.fileName || 'Unknown file'}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
@@ -486,7 +565,7 @@ export const Message: React.FC<MessageProps> = ({
             </p>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={cancelDelete}
+                onClick={() => setIsDeleteModalOpen(false)}
                 className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
                 disabled={isDeleting}
               >

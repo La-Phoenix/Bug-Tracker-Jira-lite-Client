@@ -2,41 +2,53 @@ import React, { useState } from 'react';
 import {
   X,
   Users,
-  Hash,
-  Bot,
-  UserCheck,
-  Pin,
-  VolumeX,
-  Volume2,
-  Settings,
-  UserPlus,
-  Shield,
-  Crown,
-  Circle,
   Phone,
   Video,
+  Volume2,
+  VolumeX,
+  Pin,
+  PinOff,
+  Search,
+  UserPlus,
+  Crown,
+  Shield,
+  Circle,
   Archive,
   Trash2,
+  UserMinus,
+  LogOut,
   Download,
-  Search
+  Hash,
+  Bot,
+  UserCheck
 } from 'lucide-react';
 import type { ChatRoom, ChatParticipant } from '../../types/interface';
+import { AddParticipantModal } from './AddParticipantModal';
 
 interface ChatInfoProps {
   room: ChatRoom;
   onClose: () => void;
   onToggleMute: () => void;
   onTogglePin: () => void;
+  onAddParticipant?: (userId: number) => void;
+  onRemoveParticipant?: (userId: number) => void;
+  onLeaveRoom?: () => void;
+  currentUserId: number;
 }
 
 export const ChatInfo: React.FC<ChatInfoProps> = ({
   room,
   onClose,
   onToggleMute,
-  onTogglePin
+  onTogglePin,
+  onAddParticipant,
+  onRemoveParticipant,
+  onLeaveRoom,
+  currentUserId
 }) => {
   const [activeTab, setActiveTab] = useState<'members' | 'media' | 'settings'>('members');
   const [searchMembers, setSearchMembers] = useState('');
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const getRoomIcon = () => {
     switch (room.type) {
@@ -86,6 +98,42 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
 
   const onlineCount = room.participants.filter(p => p.isOnline).length;
 
+  const handleRemoveMember = async (userId: number) => {
+    if (window.confirm('Are you sure you want to remove this member?')) {
+      onRemoveParticipant?.(userId);
+    }
+  };
+
+  const handleLeaveChat = async () => {
+    if (window.confirm('Are you sure you want to leave this chat?')) {
+      onLeaveRoom?.();
+    }
+  };
+
+  const canRemoveParticipant = (participantUserId: number) => {
+    // User can remove others if they are admin/moderator and not removing themselves
+    const currentUser = room.participants.find(p => p.userId === currentUserId);
+    return (
+      currentUser?.role === 'admin' || 
+      currentUser?.role === 'moderator'
+    ) && participantUserId !== currentUserId;
+  };
+
+  const canLeaveRoom = () => {
+    // User can leave if it's not a direct chat and they're not the only admin
+    if (room.type === 'direct') return false;
+    
+    const admins = room.participants.filter(p => p.role === 'admin');
+    const currentUser = room.participants.find(p => p.userId === currentUserId);
+    
+    // If user is admin and only admin, they can't leave
+    if (currentUser?.role === 'admin' && admins.length === 1) {
+      return false;
+    }
+    
+    return true;
+  };
+
   return (
     <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col h-full">
       {/* Header */}
@@ -110,7 +158,9 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
             {room.avatar ? (
               <img src={room.avatar} alt="" className="w-full h-full rounded-full object-cover" />
             ) : (
-              getRoomIcon()
+              <div className="text-white text-xl font-semibold">
+                {getRoomIcon()}
+              </div>
             )}
           </div>
           <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
@@ -158,7 +208,7 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
             }`}
           >
-            <Pin className="h-4 w-4" />
+            {room.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
             <span className="text-sm">{room.isPinned ? 'Unpin' : 'Pin'}</span>
           </button>
         </div>
@@ -196,14 +246,17 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                   placeholder="Search members..."
                   value={searchMembers}
                   onChange={(e) => setSearchMembers(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                 />
               </div>
             )}
 
-            {/* Add Members Button */}
+            {/* Add Members Button - only show if user can add members */}
             {room.type !== 'direct' && room.type !== 'ai_assistant' && (
-              <button className="w-full flex items-center gap-3 p-3 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors mb-4">
+              <button 
+                onClick={() => setShowAddMemberModal(true)}
+                className="w-full flex items-center gap-3 p-3 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors mb-4"
+              >
                 <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
                   <UserPlus className="h-5 w-5" />
                 </div>
@@ -214,7 +267,7 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
             {/* Members List */}
             <div className="space-y-2">
               {filteredParticipants.map((participant) => (
-                <div key={participant.userId} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors">
+                <div key={participant.userId} className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors group">
                   <div className="relative">
                     {participant.avatar ? (
                       <img
@@ -223,7 +276,7 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                         className="w-10 h-10 rounded-full object-cover"
                       />
                     ) : (
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
                         {participant.userName.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -236,6 +289,9 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {participant.userName}
+                        {participant.userId === currentUserId && (
+                          <span className="text-xs text-gray-500 ml-1">(You)</span>
+                        )}
                       </span>
                       {getRoleIcon(participant.role)}
                     </div>
@@ -249,10 +305,21 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                       )}
                     </div>
                   </div>
-                  
-                  <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors opacity-0 group-hover:opacity-100">
-                    <Settings className="h-4 w-4" />
-                  </button>
+
+                  {/* Member Actions */}
+                  {participant.userId !== currentUserId && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {canRemoveParticipant(participant.userId) && (
+                        <button
+                          onClick={() => handleRemoveMember(participant.userId)}
+                          className="p-1.5 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors rounded hover:bg-red-50 dark:hover:bg-red-900/20"
+                          title="Remove member"
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -274,7 +341,7 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
         )}
 
         {activeTab === 'settings' && (
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-6">
             {/* Notification Settings */}
             <div>
               <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
@@ -344,9 +411,43 @@ export const ChatInfo: React.FC<ChatInfoProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Danger Zone */}
+            {canLeaveRoom() && (
+              <div>
+                <h5 className="text-sm font-medium text-gray-900 dark:text-white mb-3">
+                  Danger Zone
+                </h5>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleLeaveChat}
+                    className="w-full flex items-center justify-between p-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LogOut className="h-5 w-5" />
+                      <span className="text-sm font-medium">Leave chat</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Add Member Modal */}
+      {showAddMemberModal && (
+        <AddParticipantModal
+          isOpen={showAddMemberModal}
+          onClose={() => setShowAddMemberModal(false)}
+          onAddParticipant={(userId) => {
+            onAddParticipant?.(userId);
+            setShowAddMemberModal(false);
+          }}
+          currentParticipants={room.participants.map(p => p.userId)}
+          roomName={room.name}
+        />
+      )}
     </div>
   );
 };

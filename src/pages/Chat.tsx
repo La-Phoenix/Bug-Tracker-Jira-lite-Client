@@ -8,14 +8,20 @@ import {
   Video,
   Info,
   MoreVertical,
+  LogOut,
   ArrowLeft,
   Hash,
   Bot,
   Pin,
   VolumeX,
   X,
-  AlertCircle
+  AlertCircle,
+  Bell,
+  BellOff,
+  Archive,
+  Trash2
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import * as signalR from '@microsoft/signalr';
 import { ChatService } from '../services/ChatService';
 import { ChatRoomList } from '../components/Chat/ChatRoomList';
@@ -25,6 +31,7 @@ import { ChatInfo } from '../components/Chat/ChatInfo';
 import { CreateChatModal } from '../components/Chat/CreateChatModal';
 import { useAuth } from '../contexts/AuthContext';
 import type { ChatMessage, ChatRoom } from '../types/interface';
+import { ChatSkeleton, MessagesLoadingSkeleton } from '../components/Chat/ChatSkeleton';
 
 const Chat: React.FC = () => {
   const { user } = useAuth();
@@ -44,7 +51,9 @@ const Chat: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [connection, setConnection] = useState<signalR.HubConnection | null>(null);
   const selectedRoomRef = useRef<ChatRoom | null>(null);
-  
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -73,6 +82,18 @@ const Chat: React.FC = () => {
       };
     }, []);
 
+
+     // for closing the menu
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (headerMenuRef.current && !headerMenuRef.current.contains(event.target as Node)) {
+          setShowHeaderMenu(false);
+        }
+      };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => document.removeEventListener('mousedown', handleClickOutside);
+}, []);
 
 
   // Initialize component
@@ -108,7 +129,7 @@ const Chat: React.FC = () => {
     
     return () => {
       if (selectedRoom && connection?.state === signalR.HubConnectionState.Connected) {
-        ChatService.leaveRoom(selectedRoom.id).catch(console.error);
+        // ChatService.leaveRoom(selectedRoom.id).catch(console.error);
       }
     };
   }, [selectedRoom, connection]);
@@ -175,8 +196,11 @@ const Chat: React.FC = () => {
       conn.off("MessageReceived");
       conn.off("MessageEdited");
       conn.off("MessageDeleted");
-      conn.off("ParticipantAdded");
+      conn.off("RoomCreated");
+      conn.off("AddedToRoom");
+      conn.off("ParticipantsAdded");
       conn.off("ParticipantRemoved");
+      conn.off("RemovedFromRoom");
       conn.off("RoomUpdated");
       conn.off("UserStartedTyping");
       conn.off("UserStoppedTyping");
@@ -187,11 +211,11 @@ const Chat: React.FC = () => {
       setConnection(conn);
       setLoading(false);
       scrollToBottom();
-      setShowSidebar(false)
       
     } catch (error) {
       console.error("Failed to initialize SignalR:", error);
       setLoading(false);
+      toast.error("Failed to initialize chat connection");
     }
   };
 
@@ -265,6 +289,100 @@ const Chat: React.FC = () => {
       ));
     });
 
+    conn.on("RoomCreated", (data: { room: ChatRoom }) => {
+      console.log("New room created via SignalR:", data);
+      
+      setRooms(prev => {
+        const exists = prev.some(room => room.id === data.room.id);
+        if (!exists) {
+          return [data.room, ...prev];
+        }
+        return prev;
+      });
+
+      if (selectedRoomRef.current?.id === data.room.id) {
+        toast.success(`Chat Room - ${data.room.name} created.`);
+      }
+    });
+
+    conn.on("AddedToRoom", (data: { room: ChatRoom }) => {
+      console.log("Added to room via SignalR:", data);
+      
+      setRooms(prev => {
+        const exists = prev.some(room => room.id === data.room.id);
+        if (!exists) {
+          return [data.room, ...prev];
+        }
+        return prev;
+      });
+
+    });
+
+    conn.on("ParticipantsAdded", (data: { RoomId: number; Participants: any[] }) => {
+      console.log("New participants added:", data.Participants);
+
+      setRooms(prevRooms =>
+        prevRooms.map(room =>
+          room.id === data.RoomId
+            ? {
+                ...room,
+                participants: [...room.participants, ...data.Participants],
+              }
+            : room
+        )
+      );
+
+      // Show notification if it's the current room
+      if (selectedRoomRef.current?.id === data.RoomId) {
+        const participantNames = data.Participants.map(p => p.userName).join(', ');
+        toast.success(`${participantNames} joined the chat`);
+      }
+    });
+
+
+    //Participant management handlers
+    conn.on("ParticipantRemoved", (data: { RoomId: number; UserId: number }) => {
+      console.log(`User ${data.UserId} removed from room ${data.RoomId}`);
+
+      setRooms(prevRooms =>
+        prevRooms.map(room =>
+          room.id === data.RoomId
+            ? {
+                ...room,
+                participants: room.participants.filter(p => p.userId !== data.UserId),
+              }
+            : room
+        )
+      );
+
+      // Show notification if it's the current room
+      if (selectedRoomRef.current?.id === data.RoomId) {
+        const removedParticipant = selectedRoomRef.current.participants.find(p => p.userId === data.UserId);
+        console.log(`${removedParticipant?.userName || 'Someone'} left the chat`);
+        toast.success(`${removedParticipant?.userName || 'Someone'} left the chat`);
+      }
+    });
+
+    conn.on("RemovedFromRoom", (data: { RoomId: number }) => {
+      console.warn(`You have been removed from room ${data.RoomId}`);
+
+      // Remove the room from the user's sidebar
+      setRooms(prevRooms => prevRooms.filter(r => r.id !== data.RoomId));
+
+      // If currently viewing the removed room, clear selection
+      if (selectedRoomRef.current?.id === data.RoomId) {
+        setSelectedRoom(null);
+        setMessages([]);
+        setReplyTo(null);
+        setShowChatInfo(false);
+      }
+
+      // Show notification - fix the error type
+      console.warn("You've been removed from this chat room");
+      setError("You've been removed from this chat room");
+      setTimeout(() => setError(''), 5000); // Fix: use empty string instead of null
+    });
+
     // Typing events
     conn.on("UserStartedTyping", (data: { roomId: number; userName: string, userId: number }) => {
       if (selectedRoomRef.current?.id === data.roomId && data.userId !== user?.id) {
@@ -281,27 +399,6 @@ const Chat: React.FC = () => {
       if (selectedRoomRef.current?.id === data.roomId) {
         setTypingUsers(prev => prev.filter(name => name !== data.userName));
       }
-    });
-
-    // Participant events
-    conn.on("ParticipantAdded", (data: { roomId: number; participant: any }) => {
-      console.log("Participant added via SignalR:", data);
-      
-      setRooms(prev => prev.map(room =>
-        room.id === data.roomId 
-          ? { ...room, participants: [...room.participants, data.participant] } 
-          : room
-      ));
-    });
-
-    conn.on("ParticipantRemoved", (data: { roomId: number; userId: number }) => {
-      console.log("Participant removed via SignalR:", data);
-      
-      setRooms(prev => prev.map(room =>
-        room.id === data.roomId
-          ? { ...room, participants: room.participants.filter(p => p.userId !== data.userId) }
-          : room
-      ));
     });
 
     // Room updated
@@ -413,13 +510,22 @@ const Chat: React.FC = () => {
 
   const getRoomDisplayName = (room: ChatRoom) => {
     if (room.type === 'direct') {
-      const otherParticipant = room.participants.find(p => p.userId !== user?.id);
-      console.log("room:", room)
-      console.log("otherParticipant:", otherParticipant)
-      return otherParticipant?.userName || 'Unknown User';
+      const otherParticipant = room.participants.find(p => p.userId !== user!.id);
+
+      if (!otherParticipant) {
+        // only the logged-in user is in this chat
+        const self = room.participants.find(p => p.userId === user!.id);
+        return self ? `${self.userName} (You)` : 'Unknown User';
+      }
+
+      return otherParticipant.userName || 'Unknown User';
     }
+
+    // for group/project/AI rooms
     return room.name;
   };
+
+
 
   const handleEditMessage = async (messageId: number, newContent: string) => {
     try {
@@ -443,7 +549,7 @@ const Chat: React.FC = () => {
     const maxDeleteTime = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
     
     if (messageAge > maxDeleteTime && message.senderId !== user?.id) {
-      setError('This message is too old to be deleted.');
+      toast.error('This message is too old to be deleted.');
       return false;
     }
     
@@ -452,7 +558,7 @@ const Chat: React.FC = () => {
       // Only allow if user is admin/owner of the room
       const userParticipant = selectedRoom.participants.find(p => p.userId === user?.id);
       if (!userParticipant || userParticipant.role !== 'admin') {
-        setError('You can only delete your own messages.');
+        toast.error('You can only delete your own messages.');
         return false;
       }
     }
@@ -469,6 +575,58 @@ const Chat: React.FC = () => {
     return false;
   };
 
+  // functions to handle participant management from UI
+  const handleAddParticipant = async (userId: number) => {
+    if (!selectedRoom) return;
+    
+    try {
+      const response = await ChatService.addParticipantsToRoom(selectedRoom.id, [userId], user!.id);
+      if (response.success) {
+        console.log('Participant added successfully');
+        // Success handled by SignalR event
+      } else {
+        console.error(response.message || 'Failed to add participant');
+      }
+    } catch (error) {
+      console.error('Error adding participant:', error);
+      setError('Failed to add participant');
+    }
+  };
+
+  const handleRemoveParticipant = async (userId: number) => {
+    if (!selectedRoom) return;
+    
+    try {
+      const response = await ChatService.removeParticipantFromRoom(selectedRoom.id, userId);
+      if (response.success) {
+        console.log('Participant removed successfully');
+        // Success handled by SignalR event
+      } else {
+        console.error(response.message || 'Failed to remove participant');
+      }
+    } catch (error) {
+      console.error('Error removing participant:', error);
+      setError('Failed to remove participant');
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    if (!selectedRoom) return;
+    return;
+    // try {
+    //   const response = await ChatService.leaveRoom(selectedRoom.id);
+    //    if (response.success) {
+    //     console.log('Left room successfully');
+    //     toast.success('Left room successfully');
+    //     // Success handled by SignalR event
+    //   } else {
+    //     toast.error(response.message || 'Failed to leave room');
+    //   }
+    // } catch (error) {
+    //   console.error('Error leaving room:', error);
+    //   toast.error('Failed to leave room');
+    // }
+  };
   const handleRoomSelect = (room: ChatRoom) => {
     setSelectedRoom(room);
     setReplyTo(null);
@@ -575,14 +733,7 @@ const Chat: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
-        </div>
-      </div>
-    );
+    return <ChatSkeleton />;
   }
 
   return (
@@ -684,13 +835,18 @@ const Chat: React.FC = () => {
             </div>
           ) : (
             <ChatRoomList
-              rooms={filteredRooms}
-              selectedRoomId={selectedRoom?.id}
+              rooms={rooms}
+              selectedRoom={selectedRoom} // Changed from selectedRoomId
               onRoomSelect={handleRoomSelect}
-              onToggleMute={toggleMute}
-              onTogglePin={togglePin}
-              loading={false}
+              onCreateChat={() => setShowCreateModal(true)}
               currentUserId={user!.id}
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              filter={filter}
+              onFilterChange={setFilter}
+              onTogglePin={togglePin}
+              onToggleMute={toggleMute}
+              loading={false}
             />
           )}
         </div>
@@ -801,12 +957,88 @@ const Chat: React.FC = () => {
                   <Info className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
                 
-                <button 
-                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                  title="More options"
-                >
-                  <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
+                <div className="relative" ref={headerMenuRef}>
+                  <button 
+                    onClick={() => setShowHeaderMenu(!showHeaderMenu)}
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title="More options"
+                  >
+                    <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+
+                  {/* Header Menu Dropdown */}
+                  {showHeaderMenu && (
+                    <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+                      <button
+                        onClick={() => {
+                          setShowChatInfo(true);
+                          setShowHeaderMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Info className="h-4 w-4" />
+                        View contact info
+                      </button>
+                      
+                      <button
+                        onClick={() => setShowHeaderMenu(false)}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Search className="h-4 w-4" />
+                        Search messages
+                      </button>
+                      
+                      <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                      
+                      <button
+                        onClick={() => {
+                          toggleMute(selectedRoom.id);
+                          setShowHeaderMenu(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        {selectedRoom.isMuted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                        {selectedRoom.isMuted ? 'Unmute notifications' : 'Mute notifications'}
+                      </button>
+                      
+                      <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+    
+                        <button
+                          onClick={() => setShowHeaderMenu(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <Archive className="h-4 w-4" />
+                          Archive chat
+                        </button>
+                      
+                      {/* Leave Chat - only show if user can leave */}
+                      {selectedRoom.type !== 'direct' && selectedRoom.type !== 'ai_assistant' && (
+                        <button
+                          onClick={() => {
+                            setShowHeaderMenu(false);
+                            if (window.confirm('Are you sure you want to leave this chat?')) {
+                              handleLeaveRoom();
+                            }
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Leave chat
+                        </button>
+                      )}
+                      
+                      {selectedRoom.type !== 'ai_assistant' && (
+                        <button
+                          onClick={() => setShowHeaderMenu(false)}
+                          className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete chat
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -814,14 +1046,7 @@ const Chat: React.FC = () => {
             <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
               <div className="flex-1 overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2 pb-24 sm:pb-28">
                 {messagesLoading ? (
-                  <div className="flex items-center justify-center min-h-[200px]">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                        Loading messages...
-                      </p>
-                    </div>
-                  </div>
+                  <MessagesLoadingSkeleton />
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center min-h-[200px]">
                     <div className="text-center max-w-xs sm:max-w-md">
@@ -926,10 +1151,15 @@ const Chat: React.FC = () => {
             onClose={() => setShowChatInfo(false)}
             onToggleMute={() => toggleMute(selectedRoom.id)}
             onTogglePin={() => togglePin(selectedRoom.id)}
+            onAddParticipant={handleAddParticipant}
+            onRemoveParticipant={handleRemoveParticipant}
+            onLeaveRoom={handleLeaveRoom}
+            currentUserId={user!.id}
           />
         </div>
       )}
 
+      {/* Chat Info - Mobile */}
       {showChatInfo && selectedRoom && isMobileView && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
           <div className="bg-white dark:bg-gray-800 w-full h-[85vh] sm:h-[90vh] rounded-t-2xl">
@@ -938,6 +1168,10 @@ const Chat: React.FC = () => {
               onClose={() => setShowChatInfo(false)}
               onToggleMute={() => toggleMute(selectedRoom.id)}
               onTogglePin={() => togglePin(selectedRoom.id)}
+              onAddParticipant={handleAddParticipant}
+              onRemoveParticipant={handleRemoveParticipant}
+              onLeaveRoom={handleLeaveRoom}
+              currentUserId={user!.id}
             />
           </div>
         </div>
@@ -947,7 +1181,6 @@ const Chat: React.FC = () => {
         <CreateChatModal
           onClose={() => setShowCreateModal(false)}
           onChatCreated={(newRoom) => {
-            setRooms(prev => [newRoom, ...prev]);
             setSelectedRoom(newRoom);
             setShowCreateModal(false);
             if (isMobileView) {

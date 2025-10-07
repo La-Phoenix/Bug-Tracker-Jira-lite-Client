@@ -1,35 +1,53 @@
-import React from 'react';
-import { 
-  Users, 
-  Hash, 
-  Bot, 
-  Pin, 
-  VolumeX, 
+import React, { useState } from 'react';
+import {
+  Search,
+  Plus,
+  Users,
+  Hash,
+  Bot,
   UserCheck,
+  Pin,
+  VolumeX,
+  MoreVertical,
+  Archive,
+  Trash2,
   MessageSquare,
-  MoreVertical
+  Bell,
+  BellOff
 } from 'lucide-react';
-import type { ChatRoom } from '../../types/interface';
+import type { ChatRoom, ChatParticipant } from '../../types/interface';
 
 interface ChatRoomListProps {
   rooms: ChatRoom[];
-  selectedRoomId?: number;
+  selectedRoom: ChatRoom | null; // Changed from selectedRoomId
   onRoomSelect: (room: ChatRoom) => void;
-  onToggleMute?: (roomId: number) => void;
-  onTogglePin?: (roomId: number) => void;
-  loading?: boolean;
+  onCreateChat: () => void;
   currentUserId: number;
+  searchTerm: string;
+  onSearchChange: (term: string) => void;
+  filter?: 'all' | 'pinned' | 'muted' | 'unread';
+  onFilterChange?: (filter: 'all' | 'pinned' | 'muted' | 'unread') => void;
+  onTogglePin?: (roomId: number) => void;
+  onToggleMute?: (roomId: number) => void;
+  loading?: boolean;
 }
 
 export const ChatRoomList: React.FC<ChatRoomListProps> = ({
   rooms,
-  selectedRoomId,
+  selectedRoom,
   onRoomSelect,
-  onToggleMute,
+  onCreateChat,
+  currentUserId,
+  searchTerm,
+  onSearchChange,
+  filter = 'all',
+  onFilterChange,
   onTogglePin,
-  loading = false,
-  currentUserId
+  onToggleMute,
+  loading = false
 }) => {
+  const [showMoreMenu, setShowMoreMenu] = useState<number | null>(null);
+
   const getRoomIcon = (room: ChatRoom) => {
     switch (room.type) {
       case 'direct':
@@ -48,9 +66,11 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
   const getRoomDisplayName = (room: ChatRoom) => {
     if (room.type === 'direct') {
       const otherParticipant = room.participants.find(p => p.userId !== currentUserId);
-      console.log("room:", room)
-      console.log("otherParticipant:", otherParticipant)
-      return otherParticipant?.userName || 'Unknown User';
+      if (!otherParticipant) {
+        const self = room.participants.find(p => p.userId === currentUserId);
+        return self ? `${self.userName} (You)` : 'Unknown';
+      }
+      return otherParticipant.userName;
     }
     return room.name;
   };
@@ -79,13 +99,76 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const getOnlineCount = (room: ChatRoom) => {
-    return room.participants.filter(p => p.isOnline).length;
-  };
+  // Filter rooms based on current filter
+  const filteredRooms = rooms.filter(room => {
+    // Apply search filter
+    const matchesSearch = !searchTerm || 
+      getRoomDisplayName(room).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (room.lastMessage?.content || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // Apply type filter
+    switch (filter) {
+      case 'pinned':
+        return room.isPinned;
+      case 'muted':
+        return room.isMuted;
+      case 'unread':
+        return room.unreadCount > 0;
+      case 'all':
+      default:
+        return true;
+    }
+  });
+
+
+  // const getLastMessagePreview = (room: ChatRoom) => {
+  //   if (!room.lastMessage) return 'No messages yet';
+    
+  //   if (room.type === 'direct') {
+  //     let otherParticipant: ChatParticipant | null = null;
+  //     if (room.participants.length === 2) {
+  //       otherParticipant = room.participants.find(p => p.userId !== currentUserId) || null;
+  //     }
+      
+  //     const isFromSelf = room.lastMessage.senderId === currentUserId;
+  //     const senderName = isFromSelf ? 'You' : (otherParticipant?.userName || 'Unknown');
+      
+  //     let messagePreview = '';
+  //     if (room.lastMessage.type === 'text') {
+  //       messagePreview = room.lastMessage.content;
+  //     } else if (room.lastMessage.type === 'file') {
+  //       messagePreview = `📎 ${room.lastMessage.fileName || 'File'}`;
+  //     } else if (room.lastMessage.type === 'image') {
+  //       messagePreview = '📷 Photo';
+  //     } else if (room.lastMessage.type === 'voice') {
+  //       messagePreview = '🎤 Voice message';
+  //     }
+      
+  //     return `${senderName}: ${messagePreview}`;
+  //   } else {
+  //     const senderName = room.lastMessage.senderId === currentUserId ? 'You' : room.lastMessage.senderName;
+  //     let messagePreview = '';
+      
+  //     if (room.lastMessage.type === 'text') {
+  //       messagePreview = room.lastMessage.content;
+  //     } else if (room.lastMessage.type === 'file') {
+  //       messagePreview = `📎 ${room.lastMessage.fileName || 'File'}`;
+  //     } else if (room.lastMessage.type === 'image') {
+  //       messagePreview = '📷 Photo';
+  //     } else if (room.lastMessage.type === 'voice') {
+  //       messagePreview = '🎤 Voice message';
+  //     }
+      
+  //     return `${senderName}: ${messagePreview}`;
+  //   }
+  // };
+  
 
   if (loading) {
     return (
-      <div className="p-4 space-y-3">
+      <div className="p-2 space-y-1">
         {Array.from({ length: 5 }).map((_, index) => (
           <div key={index} className="animate-pulse">
             <div className="flex items-center gap-3 p-3">
@@ -102,43 +185,86 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
   }
 
   return (
-    <div className="p-2">
-      {rooms.length === 0 ? (
-        <div className="text-center p-8">
-          <MessageSquare className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
-            No conversations yet
-          </p>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-            Create a new chat to get started
-          </p>
+    <div className="h-full">
+      {/* Search and Filter Bar */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          />
         </div>
-      ) : (
-        <div className="space-y-1">
-          {rooms.map((room) => {
-            const displayName = getRoomDisplayName(room);
-            console.log("dssp: ", displayName)
-            const roomAvatar = getRoomAvatar(room);
-            const otherParticipant = room.type === 'direct' 
-              ? room.participants.find(p => p.userId !== currentUserId)
-              : null;
-            
-            return (
-              <div
-                key={room.id}
-                className={`group relative rounded-lg transition-all duration-200 ${
-                  selectedRoomId === room.id
-                    ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <button
-                  onClick={() => onRoomSelect(room)}
-                  className="w-full p-3 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
+
+        {/* Filter Buttons */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {(['all', 'pinned', 'muted', 'unread'] as const).map((filterType) => (
+            <button
+              key={filterType}
+              onClick={() => onFilterChange?.(filterType)}
+              className={`px-3 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                filter === filterType
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Create Chat Button */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={onCreateChat}
+          className="w-full flex items-center gap-3 p-3 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+        >
+          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+            <Plus className="h-5 w-5" />
+          </div>
+          <span className="font-medium">New Chat</span>
+        </button>
+      </div>
+
+      {/* Chat List */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredRooms.length === 0 ? (
+          <div className="text-center p-8">
+            <MessageSquare className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {searchTerm ? 'No conversations found' : 'No conversations yet'}
+            </p>
+            <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+              {searchTerm ? 'Try a different search term' : 'Create a new chat to get started'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-0">
+            {filteredRooms.map((room) => {
+              const displayName = getRoomDisplayName(room);
+              const roomAvatar = getRoomAvatar(room);
+              let otherParticipant: ChatParticipant | null = null;
+
+              if (room.type === 'direct') {
+                otherParticipant = room.participants.find(p => p.userId !== currentUserId) || null;
+              }
+              
+              return (
+                <div
+                  key={room.id}
+                  className={`group relative transition-all duration-200 ${
+                    selectedRoom?.id === room.id
+                      ? 'bg-green-50 dark:bg-green-900/10 border-r-4 border-green-500'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  }`}
                 >
-                  <div className="flex items-start gap-3">
-                    {/* Avatar/Icon */}
-                    <div className="relative flex-shrink-0">
+                  <div className="flex items-center p-3">
+                    {/* Avatar */}
+                    <div className="relative flex-shrink-0 mr-3">
                       {roomAvatar ? (
                         <img 
                           src={roomAvatar} 
@@ -148,19 +274,21 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
                       ) : (
                         <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                           room.type === 'direct' 
-                            ? 'bg-green-100 dark:bg-green-900/20' 
+                            ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
                             : room.type === 'project'
-                            ? 'bg-purple-100 dark:bg-purple-900/20'
+                            ? 'bg-gradient-to-br from-purple-500 to-purple-600'
                             : room.type === 'ai_assistant'
-                            ? 'bg-orange-100 dark:bg-orange-900/20'
-                            : 'bg-blue-100 dark:bg-blue-900/20'
+                            ? 'bg-gradient-to-br from-orange-500 to-orange-600'
+                            : 'bg-gradient-to-br from-indigo-500 to-indigo-600'
                         }`}>
                           {room.type === 'direct' ? (
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <span className="text-sm font-semibold text-white">
                               {displayName.charAt(0).toUpperCase()}
                             </span>
                           ) : (
-                            getRoomIcon(room)
+                            <div className="text-white">
+                              {getRoomIcon(room)}
+                            </div>
                           )}
                         </div>
                       )}
@@ -171,143 +299,155 @@ export const ChatRoomList: React.FC<ChatRoomListProps> = ({
                       )}
                     </div>
 
-                    {/* Chat Info */}
-                    <div className="flex-1 min-w-0">
+                    {/* Chat Content */}
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onRoomSelect(room)}>
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <h3 className={`font-medium truncate ${
+                            selectedRoom?.id === room.id 
+                              ? 'text-gray-900 dark:text-white' 
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
                             {displayName}
                           </h3>
                           
-                          {/* Room indicators */}
+                          {/* Status indicators */}
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {room.isPinned && (
-                              <Pin className="h-3 w-3 text-yellow-500" />
+                              <Pin className="h-3 w-3 text-blue-500" />
                             )}
                             {room.isMuted && (
                               <VolumeX className="h-3 w-3 text-gray-400" />
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Time and unread count */}
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                           {room.lastMessage && (
                             <span className="text-xs text-gray-500 dark:text-gray-400">
                               {formatLastMessageTime(room.lastMessage.createdAt)}
                             </span>
                           )}
                           {room.unreadCount > 0 && (
-                            <span className="bg-blue-500 text-white text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                            <span className="bg-green-500 text-white text-xs font-medium px-2 py-0.5 rounded-full min-w-[20px] text-center">
                               {room.unreadCount > 99 ? '99+' : room.unreadCount}
                             </span>
                           )}
                         </div>
                       </div>
                       
-                      {/* Last message or status */}
-                      {room.lastMessage ? (
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                      {/* Last message preview */}
+                      <div className="flex items-center justify-between">
+                        {room.lastMessage ? (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 truncate flex-1">
                             {room.lastMessage.type === 'text' ? (
                               <>
-                                <span className="font-medium">
-                                  {room.lastMessage.senderId === currentUserId ? 'You' : room.lastMessage.senderName}:
-                                </span>{' '}
+                                {room.lastMessage.senderId === currentUserId && (
+                                  <span className="text-blue-500 mr-1">✓</span>
+                                )}
                                 {room.lastMessage.content}
                               </>
                             ) : (
                               <>
-                                <span className="font-medium">
-                                  {room.lastMessage.senderId === currentUserId ? 'You' : room.lastMessage.senderName}
-                                </span>{' '}
-                                sent {room.lastMessage.type === 'image' ? 'an image' : 'a file'}
+                                {room.lastMessage.senderId === currentUserId && (
+                                  <span className="text-blue-500 mr-1">✓</span>
+                                )}
+                                <span className="italic">
+                                  {room.lastMessage.type === 'image' ? '📷 Photo' : 
+                                   room.lastMessage.type === 'file' ? '📄 File' : 
+                                   room.lastMessage.type === 'voice' ? '🎵 Voice message' : 
+                                   'Media message'}
+                                </span>
                               </>
                             )}
                           </p>
-                        </div>
-                      ) : room.type === 'direct' ? (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {otherParticipant?.isOnline ? 'Online' : 'Offline'}
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {room.description || 'No messages yet'}
-                        </p>
-                      )}
+                        ) : room.type === 'direct' ? (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {otherParticipant?.isOnline ? 'Online' : 'Tap to start chatting'}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            {room.description || 'No messages yet'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                      {/* Participants info for non-direct chats */}
-                      {room.type !== 'direct' && room.type !== 'ai_assistant' && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <Users className="h-3 w-3 text-gray-400" />
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {room.participants.length} members
-                          </span>
-                          {getOnlineCount(room) > 0 && (
-                            <>
-                              <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-green-500">
-                                {getOnlineCount(room)} online
-                              </span>
-                            </>
+                    {/* More menu */}
+                    <div className="relative flex-shrink-0 ml-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowMoreMenu(showMoreMenu === room.id ? null : room.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors opacity-0 group-hover:opacity-100 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+
+                      {/* Dropdown menu */}
+                      {showMoreMenu === room.id && (
+                        <div className="absolute right-0 top-8 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onTogglePin?.(room.id);
+                              setShowMoreMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <Pin className="h-4 w-4" />
+                            {room.isPinned ? 'Unpin chat' : 'Pin chat'}
+                          </button>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleMute?.(room.id);
+                              setShowMoreMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            {room.isMuted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                            {room.isMuted ? 'Unmute notifications' : 'Mute notifications'}
+                          </button>
+
+                          <div className="border-t border-gray-200 dark:border-gray-600 my-1"></div>
+                          
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowMoreMenu(null);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <Archive className="h-4 w-4" />
+                            Archive chat
+                          </button>
+                          
+                          {room.type !== 'ai_assistant' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowMoreMenu(null);
+                              }}
+                              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete chat
+                            </button>
                           )}
                         </div>
                       )}
                     </div>
                   </div>
-                </button>
-
-              {/* Quick actions menu */}
-              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center gap-1">
-                  {onTogglePin && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onTogglePin(room.id);
-                      }}
-                      className={`p-1 rounded transition-colors ${
-                        room.isPinned 
-                          ? 'text-yellow-500 hover:text-yellow-600' 
-                          : 'text-gray-400 hover:text-gray-600'
-                      }`}
-                      title={room.isPinned ? 'Unpin' : 'Pin'}
-                    >
-                      <Pin className="h-3 w-3" />
-                    </button>
-                  )}
-                  
-                  {onToggleMute && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleMute(room.id);
-                      }}
-                      className={`p-1 rounded transition-colors ${
-                        room.isMuted 
-                          ? 'text-red-500 hover:text-red-600' 
-                          : 'text-gray-400 hover:text-gray-600'
-                      }`}
-                      title={room.isMuted ? 'Unmute' : 'Mute'}
-                    >
-                      <VolumeX className="h-3 w-3" />
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
-                    title="More options"
-                  >
-                    <MoreVertical className="h-3 w-3" />
-                  </button>
                 </div>
-              </div>
-            </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
