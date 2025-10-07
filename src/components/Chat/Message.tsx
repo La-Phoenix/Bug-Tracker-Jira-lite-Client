@@ -18,8 +18,6 @@ import {
   Music
 } from 'lucide-react';
 import type { ChatMessage } from '../../types/interface';
-import { DeleteConfirmationModal } from '../DeleteConfirmationModal';
-import { FilePreviewModal } from './FilePreviewModal';
 
 interface MessageProps {
   message: ChatMessage;
@@ -27,7 +25,6 @@ interface MessageProps {
   onReply?: (message: ChatMessage) => void;
   onEdit?: (messageId: number, content: string) => void;
   onDelete?: (messageId: number) => Promise<boolean>;
-  onReaction?: (messageId: number, emoji: string) => void;
 }
 
 export const Message: React.FC<MessageProps> = ({
@@ -35,29 +32,48 @@ export const Message: React.FC<MessageProps> = ({
   currentUserId,
   onReply,
   onEdit,
-  onDelete,
-  onReaction
+  onDelete
 }) => {
   const [showActions, setShowActions] = useState(false);
-  const [showReactions, setShowReactions] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showFilePreview, setShowFilePreview] = useState(false);
 
-  const moreMenuRef = useRef<HTMLDivElement>(null);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   const isOwnMessage = message.senderId === currentUserId;
-  const isSystemMessage = message.type.toLowerCase() === 'system';
-  const canEdit = isOwnMessage && message.type.toLowerCase() === 'text';
-  const canDelete = isOwnMessage;
 
-  // ...existing useEffects and other functions...
+  useEffect(() => {
+    if (isEditing && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [isEditing]);
 
-  const getAdvancedFileIcon = (fileName: string, fileSize?: number) => {
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isEditing && editInputRef.current && !editInputRef.current.contains(event.target as Node)) {
+        handleCancelEdit();
+      }
+    };
+
+    if (isEditing) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isEditing]);
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes || bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getAdvancedFileIcon = (fileName: string) => {
     const extension = fileName.split('.').pop()?.toLowerCase();
     
     switch (extension) {
@@ -136,7 +152,41 @@ export const Message: React.FC<MessageProps> = ({
     window.open(url, '_blank');
   };
 
-  // ...existing functions...
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (editContent.trim() && editContent.trim() !== message.content && onEdit) {
+      await onEdit(message.id, editContent.trim());
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditContent(message.content);
+    setIsEditing(false);
+  };
+
+  const confirmDelete = async () => {
+    if (onDelete) {
+      setIsDeleting(true);
+      const success = await onDelete(message.id);
+      setIsDeleting(false);
+      if (success) {
+        setIsDeleteModalOpen(false);
+      }
+    }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalOpen(false);
+  };
 
   return (
     <>
@@ -183,7 +233,7 @@ export const Message: React.FC<MessageProps> = ({
                 : 'bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
             }`}>
               {/* Reply Context */}
-              {message.replyToId && message.replyTo && (
+              {message.replyTo && (
                 <div className={`mb-2 p-2 rounded border-l-2 text-xs ${
                   isOwnMessage 
                     ? 'bg-blue-700 border-blue-300' 
@@ -207,7 +257,7 @@ export const Message: React.FC<MessageProps> = ({
                         ref={editInputRef}
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyPress}
                         className="w-full p-2 text-sm bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded resize-none text-gray-900 dark:text-white"
                         rows={2}
                       />
@@ -282,7 +332,7 @@ export const Message: React.FC<MessageProps> = ({
                   ) : (
                     <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-600 rounded-lg max-w-full sm:max-w-sm group hover:bg-gray-100 dark:hover:bg-gray-500 transition-colors">
                       <div className="text-2xl flex-shrink-0">
-                        {getAdvancedFileIcon(message.fileName || '', message.fileSize)}
+                        {getAdvancedFileIcon(message.fileName || '')}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate" title={message.fileName}>
@@ -356,35 +406,90 @@ export const Message: React.FC<MessageProps> = ({
             {/* Message Actions */}
             {showActions && !isEditing && (
               <div className={`absolute top-0 ${isOwnMessage ? 'left-0 -translate-x-full' : 'right-0 translate-x-full'} flex items-center gap-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-1`}>
-                {/* ...existing action buttons... */}
+                <button
+                  onClick={() => onReply?.(message)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                  title="Reply"
+                >
+                  <Reply className="h-4 w-4" />
+                </button>
+                
+                {isOwnMessage && message.type.toLowerCase() === 'text' && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                    title="Edit"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                )}
+                
+                <button
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                  title="Add reaction"
+                >
+                  <Smile className="h-4 w-4" />
+                </button>
+                
+                <button
+                  onClick={() => navigator.clipboard.writeText(message.content)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                  title="Copy"
+                >
+                  <Copy className="h-4 w-4" />
+                </button>
+                
+                {isOwnMessage && (
+                  <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="p-1.5 text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+                
+                <button
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+                  title="More"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* File Preview Modal */}
-      {showFilePreview && message.fileUrl && message.fileName && (
-        <FilePreviewModal
-          isOpen={showFilePreview}
-          onClose={() => setShowFilePreview(false)}
-          fileUrl={message.fileUrl}
-          fileName={message.fileName}
-          fileType={message.type}
-        />
+      {/* Simple Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-sm w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Delete Message
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Are you sure you want to delete this message? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-
-      {/* Delete Modal */}
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={cancelDelete}
-        onConfirm={confirmDelete}
-        title="Delete Chat Message"
-        itemName={message.content || ''}
-        itemType="Chat Message"
-        description=""
-        isDeleting={isDeleting}
-      />
     </>
   );
 };
