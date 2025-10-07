@@ -9,7 +9,6 @@ import {
   X,
   Trash2,
   Copy,
-  Flag,
   Eye,
   ExternalLink,
   FileText,
@@ -39,7 +38,6 @@ export const Message: React.FC<MessageProps> = ({
   const [editContent, setEditContent] = useState(message.content);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showFilePreview, setShowFilePreview] = useState(false);
 
   const editInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -150,6 +148,30 @@ export const Message: React.FC<MessageProps> = ({
 
   const handleFileOpen = (url: string) => {
     window.open(url, '_blank');
+  };
+
+  const handleImagePreview = (url: string, fileName?: string) => {
+    // Create modal for image preview
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+    modal.onclick = () => document.body.removeChild(modal);
+    
+    const img = document.createElement('img');
+    img.src = url;
+    img.className = 'max-w-full max-h-full object-contain rounded-lg';
+    img.alt = fileName || 'Preview';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.className = 'absolute top-4 right-4 text-white text-2xl w-8 h-8 flex items-center justify-center bg-black bg-opacity-50 rounded-full hover:bg-opacity-75';
+    closeBtn.onclick = (e) => {
+      e.stopPropagation();
+      document.body.removeChild(modal);
+    };
+    
+    modal.appendChild(img);
+    modal.appendChild(closeBtn);
+    document.body.appendChild(modal);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -301,13 +323,13 @@ export const Message: React.FC<MessageProps> = ({
                           src={message.fileUrl} 
                           alt={message.fileName}
                           className="rounded-lg max-h-60 w-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setShowFilePreview(true)}
+                          onClick={() => handleImagePreview(message.fileUrl!, message.fileName)}
                         />
                         {/* Image overlay with actions */}
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => setShowFilePreview(true)}
+                              onClick={() => handleImagePreview(message.fileUrl!, message.fileName)}
                               className="p-2 bg-white bg-opacity-80 hover:bg-opacity-100 rounded-full transition-all"
                               title="Preview"
                             >
@@ -346,15 +368,6 @@ export const Message: React.FC<MessageProps> = ({
                         </div>
                       </div>
                       <div className="flex gap-1">
-                        {isPreviewableFile(message.fileName || '') && (
-                          <button 
-                            onClick={() => setShowFilePreview(true)}
-                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-                            title="Preview"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                        )}
                         <button 
                           onClick={() => handleFileDownload(message.fileUrl!, message.fileName!)}
                           className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
