@@ -539,9 +539,9 @@ const Chat: React.FC = () => {
     }
   };
 
-   if (loading) {
+  if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
@@ -551,8 +551,8 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex overflow-hidden relative">
-      {/* Error Display - Fixed positioning */}
+    <div className="h-full flex overflow-hidden bg-gray-50 dark:bg-gray-900">
+      {/* Error Display */}
       {error && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 z-50 mx-4 max-w-sm">
           <div className="flex items-center gap-2">
@@ -562,103 +562,25 @@ const Chat: React.FC = () => {
         </div>
       )}
 
-      {/* Chat Sidebar - Only for mobile */}
-      {isMobileView && (
-        <>
-          {/* Mobile Chat Sidebar */}
-          <div className={`
-            fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out
-            ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
-            bg-white dark:bg-gray-800 flex flex-col h-full
-          `}>
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-              <div className="flex items-center justify-between mb-4">
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <MessageSquare className="h-6 w-6 text-blue-600" />
-                  Chat
-                </h1>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                    title="New chat"
-                  >
-                    <Plus className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={() => setShowSidebar(false)}
-                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Search */}
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
-                />
-              </div>
-
-              {/* Filters */}
-              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                {['all', 'unread', 'pinned'].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setActiveFilter(filter as typeof activeFilter)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                      activeFilter === filter
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Room List */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide">
-              <ChatRoomList
-                rooms={filteredRooms}
-                selectedRoomId={selectedRoom?.id}
-                onRoomSelect={handleRoomSelect}
-                onToggleMute={toggleMute}
-                onTogglePin={togglePin}
-                loading={loading}
-                currentUserId={user!.id}
-              />
-            </div>
-          </div>
-
-          {/* Mobile Overlay */}
-          {showSidebar && (
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50 z-30 backdrop-blur-sm"
-              onClick={() => setShowSidebar(false)}
-            />
-          )}
-        </>
-      )}
-
-      {/* Desktop Chat Sidebar - Only show on desktop */}
-      {!isMobileView && (
-        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
-          {/* Desktop Sidebar Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <MessageSquare className="h-6 w-6 text-blue-600" />
-                Chat
-              </h1>
+      {/* Sidebar - Mobile/Desktop */}
+      <div className={`
+        ${isMobileView 
+          ? `fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${
+              showSidebar ? 'translate-x-0' : '-translate-x-full'
+            }`
+          : 'w-80 flex-shrink-0'
+        } 
+        bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full
+      `}>
+        
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <MessageSquare className="h-6 w-6 text-blue-600" />
+              Chat
+            </h1>
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -666,55 +588,71 @@ const Chat: React.FC = () => {
               >
                 <Plus className="h-5 w-5" />
               </button>
-            </div>
-
-            {/* Search */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
-
-            {/* Filters */}
-            <div className="flex items-center gap-1">
-              {['all', 'unread', 'pinned'].map((filter) => (
+              {isMobileView && (
                 <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter as typeof activeFilter)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                    activeFilter === filter
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
+                  onClick={() => setShowSidebar(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  <X className="h-5 w-5" />
                 </button>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Room List */}
-          <div className="flex-1 overflow-y-auto scrollbar-hide">
-            <ChatRoomList
-              rooms={filteredRooms}
-              selectedRoomId={selectedRoom?.id}
-              onRoomSelect={handleRoomSelect}
-              onToggleMute={toggleMute}
-              onTogglePin={togglePin}
-              loading={loading}
-              currentUserId={user!.id}
+          {/* Search */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder={isMobileView ? "Search..." : "Search conversations..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
+
+          {/* Filters */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+            {['all', 'unread', 'pinned'].map((filter) => (
+              <button
+                key={filter}
+                onClick={() => setActiveFilter(filter as typeof activeFilter)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                  activeFilter === filter
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Room List */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
+          <ChatRoomList
+            rooms={filteredRooms}
+            selectedRoomId={selectedRoom?.id}
+            onRoomSelect={handleRoomSelect}
+            onToggleMute={toggleMute}
+            onTogglePin={togglePin}
+            loading={loading}
+            currentUserId={user!.id}
+          />
+        </div>
+      </div>
+
+      {/* Mobile Overlay */}
+      {isMobileView && showSidebar && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 backdrop-blur-sm"
+          onClick={() => setShowSidebar(false)}
+        />
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {selectedRoom ? (
           <>
             {/* Chat Header */}
@@ -861,7 +799,7 @@ const Chat: React.FC = () => {
                 </div>
               )}
 
-              {/* Sticky Input */}
+              {/* Message Input - Always visible */}
               <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                 <MessageInput
                   onSendMessage={handleSendMessage}
@@ -883,7 +821,7 @@ const Chat: React.FC = () => {
           </>
         ) : (
           /* No Room Selected */
-          <div className="h-full flex items-center justify-center p-8">
+          <div className="h-full flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
             {isMobileView ? (
               <div className="text-center">
                 <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">

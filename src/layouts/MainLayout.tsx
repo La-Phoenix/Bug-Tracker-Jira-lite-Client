@@ -7,15 +7,12 @@ export const MainLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Check mobile view on mount and resize
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
       
-      // Only auto-close sidebar on mobile if it's currently open and we're switching from desktop to mobile
-      // Don't auto-close if user manually opened it on mobile
-      if (mobile && !isMobile && sidebarOpen) {
+      if (mobile && sidebarOpen) {
         setSidebarOpen(false);
       }
     };
@@ -23,9 +20,8 @@ export const MainLayout = () => {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, [isMobile, sidebarOpen]); // Add isMobile to dependencies
+  }, [sidebarOpen]);
 
-  // Close sidebar when clicking outside on mobile
   const handleSidebarClose = () => {
     if (isMobile) {
       setSidebarOpen(false);
@@ -48,11 +44,9 @@ export const MainLayout = () => {
           <Header onMenuClick={() => setSidebarOpen(true)} />
         </div>
 
-        {/* Main content area - Improved scrolling */}
-        <main className="flex-1 min-h-0 overflow-y-auto ultra-thin-scrollbar bg-gray-50 dark:bg-gray-900">
-          <div className="p-3 sm:p-4 lg:p-6 h-full">
-            <Outlet />
-          </div>
+        {/* Main content area - FIXED: Remove padding for chat page */}
+        <main className="flex-1 min-h-0 overflow-hidden bg-gray-50 dark:bg-gray-900">
+          <Outlet />
         </main>
       </div>
 
