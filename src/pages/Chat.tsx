@@ -60,6 +60,7 @@ const Chat: React.FC = () => {
 
   const inputBarRef = useRef<HTMLDivElement | null>(null);
 
+  console.log(setActiveFilter)
     useEffect(() => {
       const chatContainer = document.querySelector('.chat-container');
       const inputBar = inputBarRef.current;
@@ -791,35 +792,6 @@ const Chat: React.FC = () => {
               )}
             </div>
           </div>
-
-          {/* Search */}
-          {/* <div className="relative mb-3 sm:mb-4">
-            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={isMobileView ? "Search..." : "Search conversations..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div> */}
-
-          {/* Filters */}
-          {/* <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-            {['all', 'unread', 'pinned'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter as typeof activeFilter)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                  activeFilter === filter
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </button>
-            ))}
-          </div> */}
         </div>
 
         {/* Room List */}

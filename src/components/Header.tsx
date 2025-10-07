@@ -1032,7 +1032,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                 </div>
                 <span className="hidden md:block text-sm font-medium truncate max-w-32 lg:max-w-none">
-                  {user?.name || user?.email}
+                  {user?.userName || user?.name  || user?.email}
                 </span>
                 <ChevronDown className="h-4 w-4 transition-transform duration-200" />
               </button>
@@ -1058,7 +1058,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {user?.name || 'User'}
+                          {user?.userName || user?.name || 'User'}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                           {user?.email}
