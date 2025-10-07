@@ -784,18 +784,17 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Messages Area - Scrollable */}
-                        {/* Messages Area - Scrollable */}
-            <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 min-h-0">
-              <div className="flex-1 overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2 pb-4">
+            <div className="flex-1 bg-gray-50 dark:bg-gray-900 overflow-hidden">
+              <div className="h-full overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2 pb-4">
                 {messagesLoading ? (
-                  <div className="flex items-center justify-center h-full min-h-[200px]">
+                  <div className="flex items-center justify-center min-h-[200px]">
                     <div className="text-center">
                       <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
                       <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
                     </div>
                   </div>
                 ) : messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full min-h-[200px]">
+                  <div className="flex items-center justify-center min-h-[200px]">
                     <div className="text-center max-w-xs sm:max-w-md">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                         {getRoomTypeIcon(selectedRoom)}
@@ -828,7 +827,7 @@ const Chat: React.FC = () => {
               </div>
             </div>
 
-            {/* Message Input - Sticky at bottom */}
+            {/* Message Input - Fixed at bottom */}
             <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
               <MessageInput
                 onSendMessage={handleSendMessage}
