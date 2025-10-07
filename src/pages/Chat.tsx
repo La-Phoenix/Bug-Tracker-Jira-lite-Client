@@ -782,34 +782,33 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Messages Area - Scrollable */}
-            <div className="flex-1 min-h-0 bg-gray-50 dark:bg-gray-900 relative">
-              {messagesLoading ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
-                  </div>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
-                  <div className="text-center max-w-xs sm:max-w-md">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      {getRoomTypeIcon(selectedRoom)}
+            <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2">
+                {messagesLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
                     </div>
-                    <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Start the conversation
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
-                      {selectedRoom.type === 'ai_assistant' 
-                        ? 'Ask me anything about your project, get help with bug tracking, or request assistance with development tasks!'
-                        : 'Send your first message to get the conversation started with your team.'
-                      }
-                    </p>
                   </div>
-                </div>
-              ) : (
-                <div className="h-full overflow-y-auto scrollbar-hide">
-                  <div className="px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2">
+                ) : messages.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center max-w-xs sm:max-w-md">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        {getRoomTypeIcon(selectedRoom)}
+                      </div>
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        Start the conversation
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
+                        {selectedRoom.type === 'ai_assistant'
+                          ? 'Ask me anything about your project...'
+                          : 'Send your first message to get the conversation started.'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
                     {messages.map((message) => (
                       <Message
                         key={message.id}
@@ -821,6 +820,10 @@ const Chat: React.FC = () => {
                       />
                     ))}
                     <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+            </div>
                     {/* Bottom padding to ensure last message is visible above input */}
                     <div className="h-4 sm:h-6"></div>
                   </div>
@@ -829,7 +832,7 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Message Input - Sticky at bottom */}
-            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 z-20">
+            <div className="flex-shrink-0 sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-20">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onTyping={handleTyping}
