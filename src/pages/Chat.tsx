@@ -560,12 +560,14 @@ const Chat: React.FC = () => {
 
   return (
     <div className="h-full flex overflow-hidden relative">
-      {/* Error Display - Adjusted for MainLayout sidebar */}
+      {/* Error Display - Adjusted for MainLayout sidebar and mobile header toggle */}
       {error && (
-        <div className={`fixed top-4 z-50 mx-4 max-w-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 ${
+        <div className={`fixed z-50 mx-4 max-w-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 ${
           isMainSidebarOpen && !isMobileView 
-            ? 'left-80 transform-none' 
-            : 'left-1/2 transform -translate-x-1/2'
+            ? 'top-4 left-80 transform-none' 
+            : isMobileView 
+            ? 'top-16 left-1/2 transform -translate-x-1/2' // Account for mobile header toggle button
+            : 'top-4 left-1/2 transform -translate-x-1/2'
         }`}>
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
