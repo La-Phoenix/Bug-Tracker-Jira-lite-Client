@@ -95,11 +95,19 @@ const Chat: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Check if MainLayout sidebar is open (you'll need to get this from context or props)
+  // For now, let's assume it's open on desktop
+  const [isMainSidebarOpen, setIsMainSidebarOpen] = useState(true);
+
   const checkMobileView = useCallback(() => {
     const mobile = window.innerWidth < 768;
+    const desktop = window.innerWidth >= 1024;
     setIsMobileView(mobile);
     
-    // On mobile, close sidebar when room is selected
+    // Auto-manage main sidebar visibility based on screen size
+    setIsMainSidebarOpen(desktop);
+    
+    // On mobile, close chat sidebar when room is selected
     if (mobile && selectedRoom) {
       setShowSidebar(false);
     } else if (!mobile) {
@@ -541,7 +549,7 @@ const Chat: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
@@ -551,10 +559,14 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex overflow-hidden bg-gray-50 dark:bg-gray-900">
-      {/* Error Display */}
+    <div className="h-full flex overflow-hidden relative">
+      {/* Error Display - Adjusted for MainLayout sidebar */}
       {error && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 z-50 mx-4 max-w-sm">
+        <div className={`fixed top-4 z-50 mx-4 max-w-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 ${
+          isMainSidebarOpen && !isMobileView 
+            ? 'left-80 transform-none' 
+            : 'left-1/2 transform -translate-x-1/2'
+        }`}>
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
             <span className="text-red-700 dark:text-red-300 text-xs sm:text-sm">{error}</span>
@@ -562,22 +574,22 @@ const Chat: React.FC = () => {
         </div>
       )}
 
-      {/* Sidebar - Mobile/Desktop */}
+      {/* Chat Sidebar - Adjusted for MainLayout */}
       <div className={`
         ${isMobileView 
           ? `fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${
               showSidebar ? 'translate-x-0' : '-translate-x-full'
             }`
-          : 'w-80 flex-shrink-0'
+          : `w-80 flex-shrink-0 ${isMainSidebarOpen ? 'ml-0' : 'ml-0'}`
         } 
         bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full
       `}>
         
         {/* Sidebar Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <MessageSquare className="h-6 w-6 text-blue-600" />
+        <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
               Chat
             </h1>
             <div className="flex items-center gap-1">
@@ -586,28 +598,28 @@ const Chat: React.FC = () => {
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="New chat"
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
               {isMobileView && (
                 <button
                   onClick={() => setShowSidebar(false)}
                   className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               )}
             </div>
           </div>
 
           {/* Search */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <div className="relative mb-3 sm:mb-4">
+            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
               placeholder={isMobileView ? "Search..." : "Search conversations..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
+              className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
 
@@ -617,7 +629,7 @@ const Chat: React.FC = () => {
               <button
                 key={filter}
                 onClick={() => setActiveFilter(filter as typeof activeFilter)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
                   activeFilter === filter
                     ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
                     : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -631,15 +643,27 @@ const Chat: React.FC = () => {
 
         {/* Room List */}
         <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
-          <ChatRoomList
-            rooms={filteredRooms}
-            selectedRoomId={selectedRoom?.id}
-            onRoomSelect={handleRoomSelect}
-            onToggleMute={toggleMute}
-            onTogglePin={togglePin}
-            loading={loading}
-            currentUserId={user!.id}
-          />
+          {filteredRooms.length === 0 ? (
+            <div className="text-center p-6">
+              <div className="text-gray-400 mb-2">
+                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-medium">No conversations found</p>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {searchTerm ? 'Try a different search term' : 'Start a new conversation'}
+              </p>
+            </div>
+          ) : (
+            <ChatRoomList
+              rooms={filteredRooms}
+              selectedRoomId={selectedRoom?.id}
+              onRoomSelect={handleRoomSelect}
+              onToggleMute={toggleMute}
+              onTogglePin={togglePin}
+              loading={false}
+              currentUserId={user!.id}
+            />
+          )}
         </div>
       </div>
 
@@ -655,19 +679,19 @@ const Chat: React.FC = () => {
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {selectedRoom ? (
           <>
-            {/* Chat Header */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
+            {/* Chat Header - Sticky */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex items-center justify-between flex-shrink-0 sticky top-0 z-20">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                 {isMobileView && (
                   <button
                     onClick={handleBackToSidebar}
                     className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
                   >
-                    <ArrowLeft className="h-5 w-5" />
+                    <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                 )}
                 
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
                   {selectedRoom.avatar ? (
                     <img src={selectedRoom.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
@@ -676,22 +700,24 @@ const Chat: React.FC = () => {
                 </div>
                 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <h2 className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
                       {getRoomDisplayName(selectedRoom) || "Unknown User"}
                     </h2>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {getRoomTypeIcon(selectedRoom)}
-                      {selectedRoom.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
-                      {selectedRoom.isMuted && <VolumeX className="h-4 w-4 text-gray-400" />}
+                      <div className="hidden xs:block">
+                        {getRoomTypeIcon(selectedRoom)}
+                      </div>
+                      {selectedRoom.isPinned && <Pin className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500" />}
+                      {selectedRoom.isMuted && <VolumeX className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                    <span>{getRoomTypeLabel(selectedRoom.type)}</span>
+                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                    <span className="hidden sm:inline">{getRoomTypeLabel(selectedRoom.type)}</span>
                     {selectedRoom.type !== 'direct' && (
                       <>
-                        <span>•</span>
+                        <span className="hidden sm:inline">•</span>
                         <span>{selectedRoom.participants.length} member{selectedRoom.participants.length !== 1 ? 's' : ''}</span>
                       </>
                     )}
@@ -716,64 +742,64 @@ const Chat: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                 {selectedRoom.type !== 'ai_assistant' && !isMobileView && (
                   <>
                     <button 
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Voice call"
                     >
-                      <Phone className="h-5 w-5" />
+                      <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                     <button 
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Video call"
                     >
-                      <Video className="h-5 w-5" />
+                      <Video className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                   </>
                 )}
                 
                 <button 
                   onClick={() => setShowChatInfo(!showChatInfo)}
-                  className={`p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  className={`p-1.5 sm:p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
                     showChatInfo 
                       ? 'text-blue-600 dark:text-blue-400' 
                       : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                   }`}
                   title="Chat info"
                 >
-                  <Info className="h-5 w-5" />
+                  <Info className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
                 
                 <button 
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="More options"
                 >
-                  <MoreVertical className="h-5 w-5" />
+                  <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900">
+            {/* Messages Area - Scrollable */}
+            <div className="flex-1 min-h-0 bg-gray-50 dark:bg-gray-900 relative">
               {messagesLoading ? (
-                <div className="flex-1 flex items-center justify-center p-4">
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
+                    <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
                   </div>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center p-8">
-                  <div className="text-center max-w-md">
-                    <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-8">
+                  <div className="text-center max-w-xs sm:max-w-md">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
                       {getRoomTypeIcon(selectedRoom)}
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
                       Start the conversation
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
+                    <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
                       {selectedRoom.type === 'ai_assistant' 
                         ? 'Ask me anything about your project, get help with bug tracking, or request assistance with development tasks!'
                         : 'Send your first message to get the conversation started with your team.'
@@ -782,8 +808,8 @@ const Chat: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto scrollbar-hide">
-                  <div className="px-4 pt-4 pb-4 space-y-2">
+                <div className="h-full overflow-y-auto scrollbar-hide">
+                  <div className="px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2">
                     {messages.map((message) => (
                       <Message
                         key={message.id}
@@ -795,60 +821,62 @@ const Chat: React.FC = () => {
                       />
                     ))}
                     <div ref={messagesEndRef} />
+                    {/* Bottom padding to ensure last message is visible above input */}
+                    <div className="h-4 sm:h-6"></div>
                   </div>
                 </div>
               )}
+            </div>
 
-              {/* Message Input - Always visible */}
-              <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                <MessageInput
-                  onSendMessage={handleSendMessage}
-                  onTyping={handleTyping}
-                  replyTo={replyTo ? {
-                    id: replyTo.id,
-                    content: replyTo.content,
-                    senderName: replyTo.senderName
-                  } : undefined}
-                  onCancelReply={() => setReplyTo(null)}
-                  placeholder={
-                    selectedRoom.type === 'ai_assistant' 
-                      ? 'Ask me anything...'
-                      : 'Type a message...'
-                  }
-                />
-              </div>
+            {/* Message Input - Sticky at bottom */}
+            <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 sticky bottom-0 z-20">
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                onTyping={handleTyping}
+                replyTo={replyTo ? {
+                  id: replyTo.id,
+                  content: replyTo.content,
+                  senderName: replyTo.senderName
+                } : undefined}
+                onCancelReply={() => setReplyTo(null)}
+                placeholder={
+                  selectedRoom.type === 'ai_assistant' 
+                    ? 'Ask me anything...'
+                    : 'Type a message...'
+                }
+              />
             </div>
           </>
         ) : (
           /* No Room Selected */
-          <div className="h-full flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
+          <div className="h-full flex items-center justify-center p-4 sm:p-8">
             {isMobileView ? (
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <MessageSquare className="h-8 w-8 text-gray-400" />
+              <div className="text-center max-w-xs">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
                   Welcome to Chat
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
+                <p className="text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-xs sm:text-sm">
                   Select a conversation to start chatting with your team.
                 </p>
                 <button
                   onClick={() => setShowSidebar(true)}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
                 >
                   View Conversations
                 </button>
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <MessageSquare className="h-10 w-10 text-gray-400" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <MessageSquare className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
                 </div>
-                <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-3">
+                <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2 sm:mb-3">
                   Select a conversation
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
+                <p className="text-gray-500 dark:text-gray-400 max-w-md leading-relaxed text-sm sm:text-base">
                   Choose a chat room from the sidebar to start messaging with your team, 
                   or create a new conversation to get started.
                 </p>
@@ -858,20 +886,21 @@ const Chat: React.FC = () => {
         )}
       </div>
 
-      {/* Chat Info Sidebar - Desktop Only */}
+      {/* Chat Info & Modals - keep existing */}
       {showChatInfo && selectedRoom && !isMobileView && (
-        <ChatInfo
-          room={selectedRoom}
-          onClose={() => setShowChatInfo(false)}
-          onToggleMute={() => toggleMute(selectedRoom.id)}
-          onTogglePin={() => togglePin(selectedRoom.id)}
-        />
+        <div className="w-80 flex-shrink-0">
+          <ChatInfo
+            room={selectedRoom}
+            onClose={() => setShowChatInfo(false)}
+            onToggleMute={() => toggleMute(selectedRoom.id)}
+            onTogglePin={() => togglePin(selectedRoom.id)}
+          />
+        </div>
       )}
 
-      {/* Mobile Chat Info Modal */}
       {showChatInfo && selectedRoom && isMobileView && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white dark:bg-gray-800 w-full h-[90vh] rounded-t-2xl">
+          <div className="bg-white dark:bg-gray-800 w-full h-[85vh] sm:h-[90vh] rounded-t-2xl">
             <ChatInfo
               room={selectedRoom}
               onClose={() => setShowChatInfo(false)}
@@ -882,7 +911,6 @@ const Chat: React.FC = () => {
         </div>
       )}
 
-      {/* Create Chat Modal */}
       {showCreateModal && (
         <CreateChatModal
           onClose={() => setShowCreateModal(false)}
