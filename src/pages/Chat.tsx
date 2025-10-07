@@ -540,9 +540,9 @@ const Chat: React.FC = () => {
     }
   };
 
-  if (loading) {
+   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading chat...</p>
@@ -552,20 +552,10 @@ const Chat: React.FC = () => {
   }
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex overflow-hidden">
-      {/* Mobile Menu Button - Enhanced */}
-      {isMobileView && selectedRoom && (
-        <button
-          onClick={() => setShowSidebar(true)}
-          className="fixed top-4 left-4 z-50 p-3 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 hover:shadow-xl transition-all duration-200"
-        >
-          <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-        </button>
-      )}
-
-      {/* Error Display - Mobile Optimized */}
+    <div className="h-full flex overflow-hidden relative">
+      {/* Error Display - Fixed positioning */}
       {error && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 z-50 mx-4 max-w-sm">
+        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 z-50 mx-4 max-w-sm">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0" />
             <span className="text-red-700 dark:text-red-300 text-xs sm:text-sm">{error}</span>
@@ -573,90 +563,144 @@ const Chat: React.FC = () => {
         </div>
       )}
 
-      {/* Sidebar - Enhanced Mobile Support */}
-      <div className={`
-        ${isMobileView 
-          ? `fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out ${
-              showSidebar ? 'translate-x-0' : '-translate-x-full'
-            }`
-          : 'w-80 md:w-96 flex-shrink-0'
-        } 
-        bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full
-      `}>
-        
-        {/* Sidebar Header - Mobile Optimized */}
-        <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-              <span className="hidden xs:inline">Chat</span>
-            </h1>
-            <div className="flex items-center gap-1">
+      {/* Chat Sidebar - Only for mobile */}
+      {isMobileView && (
+        <>
+          {/* Mobile Chat Sidebar */}
+          <div className={`
+            fixed inset-0 z-40 transform transition-transform duration-300 ease-in-out
+            ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
+            bg-white dark:bg-gray-800 flex flex-col h-full
+          `}>
+            {/* Sidebar Header */}
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <MessageSquare className="h-6 w-6 text-blue-600" />
+                  Chat
+                </h1>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title="New chat"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() => setShowSidebar(false)}
+                    className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search conversations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+                {['all', 'unread', 'pinned'].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setActiveFilter(filter as typeof activeFilter)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
+                      activeFilter === filter
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Room List */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide">
+              <ChatRoomList
+                rooms={filteredRooms}
+                selectedRoomId={selectedRoom?.id}
+                onRoomSelect={handleRoomSelect}
+                onToggleMute={toggleMute}
+                onTogglePin={togglePin}
+                loading={loading}
+                currentUserId={user!.id}
+              />
+            </div>
+          </div>
+
+          {/* Mobile Overlay */}
+          {showSidebar && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-30 backdrop-blur-sm"
+              onClick={() => setShowSidebar(false)}
+            />
+          )}
+        </>
+      )}
+
+      {/* Desktop Chat Sidebar - Only show on desktop */}
+      {!isMobileView && (
+        <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
+          {/* Desktop Sidebar Header */}
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <MessageSquare className="h-6 w-6 text-blue-600" />
+                Chat
+              </h1>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="New chat"
               >
-                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <Plus className="h-5 w-5" />
               </button>
-              {isMobileView && (
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search conversations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-1">
+              {['all', 'unread', 'pinned'].map((filter) => (
                 <button
-                  onClick={() => setShowSidebar(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  key={filter}
+                  onClick={() => setActiveFilter(filter as typeof activeFilter)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    activeFilter === filter
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
                 >
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
                 </button>
-              )}
+              ))}
             </div>
           </div>
 
-          {/* Search - Mobile Optimized */}
-          <div className="relative mb-3 sm:mb-4">
-            <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder={isMobileView ? "Search..." : "Search conversations..."}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white text-sm placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
-
-          {/* Filters - Mobile Optimized */}
-          <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-            {['all', 'unread', 'pinned'].map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter as typeof activeFilter)}
-                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium rounded-full transition-colors whitespace-nowrap flex-shrink-0 ${
-                  activeFilter === filter
-                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                {filter.charAt(0).toUpperCase() + filter.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Room List - Mobile Optimized */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
-          {error ? (
-            <div className="text-center p-4 sm:p-6">
-              <div className="text-red-500 dark:text-red-400 mb-2">
-                <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-xs sm:text-sm font-medium">Failed to load chats</p>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 sm:mb-4">{error}</p>
-              <button
-                onClick={loadChatRooms}
-                className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : (
+          {/* Room List */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
             <ChatRoomList
               rooms={filteredRooms}
               selectedRoomId={selectedRoom?.id}
@@ -666,35 +710,27 @@ const Chat: React.FC = () => {
               loading={loading}
               currentUserId={user!.id}
             />
-          )}
+          </div>
         </div>
-      </div>
-
-      {/* Mobile Overlay - Enhanced */}
-      {isMobileView && showSidebar && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-30 backdrop-blur-sm"
-          onClick={() => setShowSidebar(false)}
-        />
       )}
 
-      {/* Main Chat Area - Mobile Optimized */}
-      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-h-0">
         {selectedRoom ? (
           <>
-            {/* Chat Header - Mobile Optimized */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            {/* Chat Header */}
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 {isMobileView && (
                   <button
                     onClick={handleBackToSidebar}
                     className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
                   >
-                    <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                    <ArrowLeft className="h-5 w-5" />
                   </button>
                 )}
                 
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                   {selectedRoom.avatar ? (
                     <img src={selectedRoom.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
@@ -703,24 +739,22 @@ const Chat: React.FC = () => {
                 </div>
                 
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1 sm:gap-2">
-                    <h2 className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-white truncate">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                       {getRoomDisplayName(selectedRoom) || "Unknown User"}
                     </h2>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <div className="hidden xs:block">
-                        {getRoomTypeIcon(selectedRoom)}
-                      </div>
-                      {selectedRoom.isPinned && <Pin className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500" />}
-                      {selectedRoom.isMuted && <VolumeX className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
+                      {getRoomTypeIcon(selectedRoom)}
+                      {selectedRoom.isPinned && <Pin className="h-4 w-4 text-yellow-500" />}
+                      {selectedRoom.isMuted && <VolumeX className="h-4 w-4 text-gray-400" />}
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                    <span className="hidden sm:inline">{getRoomTypeLabel(selectedRoom.type)}</span>
+                  <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                    <span>{getRoomTypeLabel(selectedRoom.type)}</span>
                     {selectedRoom.type !== 'direct' && (
                       <>
-                        <span className="hidden sm:inline">•</span>
+                        <span>•</span>
                         <span>{selectedRoom.participants.length} member{selectedRoom.participants.length !== 1 ? 's' : ''}</span>
                       </>
                     )}
@@ -732,7 +766,7 @@ const Chat: React.FC = () => {
                     )}
                   </div>
                   
-                  {/* Typing Indicator - Mobile Optimized */}
+                  {/* Typing Indicator */}
                   {typingUsers.length > 0 && (
                     <div className="text-xs text-blue-500 italic animate-pulse truncate">
                       {typingUsers.length === 1 
@@ -744,65 +778,65 @@ const Chat: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons - Mobile Optimized */}
-              <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1 flex-shrink-0">
                 {selectedRoom.type !== 'ai_assistant' && !isMobileView && (
                   <>
                     <button 
-                      className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Voice call"
                     >
-                      <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <Phone className="h-5 w-5" />
                     </button>
                     <button 
-                      className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                       title="Video call"
                     >
-                      <Video className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <Video className="h-5 w-5" />
                     </button>
                   </>
                 )}
                 
                 <button 
                   onClick={() => setShowChatInfo(!showChatInfo)}
-                  className={`p-1.5 sm:p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  className={`p-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
                     showChatInfo 
                       ? 'text-blue-600 dark:text-blue-400' 
                       : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                   }`}
                   title="Chat info"
                 >
-                  <Info className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <Info className="h-5 w-5" />
                 </button>
                 
                 <button 
-                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
                   title="More options"
                 >
-                  <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <MoreVertical className="h-5 w-5" />
                 </button>
               </div>
             </div>
 
-            {/* Messages Area - Fixed Layout */}
+            {/* Messages Area */}
             <div className="flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900">
               {messagesLoading ? (
                 <div className="flex-1 flex items-center justify-center p-4">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading messages...</p>
                   </div>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
-                  <div className="text-center max-w-xs sm:max-w-md">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center max-w-md">
+                    <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
                       {getRoomTypeIcon(selectedRoom)}
                     </div>
-                    <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       Start the conversation
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm leading-relaxed">
+                    <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed">
                       {selectedRoom.type === 'ai_assistant' 
                         ? 'Ask me anything about your project, get help with bug tracking, or request assistance with development tasks!'
                         : 'Send your first message to get the conversation started with your team.'
@@ -811,9 +845,8 @@ const Chat: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto scrollbar-hide pb-4">
-                  {/* Messages Container */}
-                  <div className="px-2 sm:px-4 pt-4 space-y-1 sm:space-y-2">
+                <div className="flex-1 overflow-y-auto scrollbar-hide">
+                  <div className="px-4 pt-4 pb-4 space-y-2">
                     {messages.map((message) => (
                       <Message
                         key={message.id}
@@ -829,7 +862,7 @@ const Chat: React.FC = () => {
                 </div>
               )}
 
-              {/* Sticky Input - Always Visible */}
+              {/* Sticky Input */}
               <div className="flex-shrink-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                 <MessageInput
                   onSendMessage={handleSendMessage}
@@ -850,35 +883,35 @@ const Chat: React.FC = () => {
             </div>
           </>
         ) : (
-          /* No Room Selected - Mobile Optimized */
-          <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 sm:p-8">
+          /* No Room Selected */
+          <div className="h-full flex items-center justify-center p-8">
             {isMobileView ? (
-              <div className="text-center max-w-xs">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <MessageSquare className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MessageSquare className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   Welcome to Chat
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 text-xs sm:text-sm">
-                  Select a conversation from the menu to start chatting with your team.
+                <p className="text-gray-500 dark:text-gray-400 mb-6 text-sm">
+                  Select a conversation to start chatting with your team.
                 </p>
                 <button
                   onClick={() => setShowSidebar(true)}
-                  className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   View Conversations
                 </button>
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                  <MessageSquare className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
+                <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <MessageSquare className="h-10 w-10 text-gray-400" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-2 sm:mb-3">
+                <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-3">
                   Select a conversation
                 </h3>
-                <p className="text-gray-500 dark:text-gray-400 max-w-md leading-relaxed text-sm sm:text-base">
+                <p className="text-gray-500 dark:text-gray-400 max-w-md leading-relaxed">
                   Choose a chat room from the sidebar to start messaging with your team, 
                   or create a new conversation to get started.
                 </p>
@@ -888,7 +921,7 @@ const Chat: React.FC = () => {
         )}
       </div>
 
-      {/* Chat Info Sidebar - Mobile Optimized */}
+      {/* Chat Info Sidebar - Desktop Only */}
       {showChatInfo && selectedRoom && !isMobileView && (
         <ChatInfo
           room={selectedRoom}
@@ -898,10 +931,10 @@ const Chat: React.FC = () => {
         />
       )}
 
-      {/* Mobile Chat Info Modal - Enhanced */}
+      {/* Mobile Chat Info Modal */}
       {showChatInfo && selectedRoom && isMobileView && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end">
-          <div className="bg-white dark:bg-gray-800 w-full h-[85vh] sm:h-[90vh] rounded-t-2xl">
+          <div className="bg-white dark:bg-gray-800 w-full h-[90vh] rounded-t-2xl">
             <ChatInfo
               room={selectedRoom}
               onClose={() => setShowChatInfo(false)}
