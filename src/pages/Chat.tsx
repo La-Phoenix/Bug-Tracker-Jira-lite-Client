@@ -823,12 +823,9 @@ const Chat: React.FC = () => {
                   </>
                 )}
               </div>
-            </div>
-                    {/* Bottom padding to ensure last message is visible above input */}
-                    <div className="h-4 sm:h-6"></div>
-                  </div>
-                </div>
-              )}
+              
+              {/* Bottom padding to ensure last message is visible above input */}
+              <div className="h-4 sm:h-6"></div>
             </div>
 
             {/* Message Input - Sticky at bottom */}
