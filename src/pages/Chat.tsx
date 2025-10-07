@@ -48,28 +48,31 @@ const Chat: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // useEffect(() => {
-  //   // Helps with MIUI/Redmi keyboard viewport resizing issue
-  //   const chatContainer = document.querySelector('.chat-container');
-  //   const inputBar = document.querySelector('.chat-input-bar');
+  const inputBarRef = useRef<HTMLDivElement | null>(null);
 
-  //   if (!window.visualViewport || !chatContainer || !inputBar) return;
+    useEffect(() => {
+      const chatContainer = document.querySelector('.chat-container');
+      const inputBar = inputBarRef.current;
 
-  //   const viewport = window.visualViewport;
+      if (!window.visualViewport || !chatContainer || !inputBar) return;
 
-  //   const adjustForKeyboard = () => {
-  //     const bottomOffset = window.innerHeight - viewport.height - viewport.offsetTop;
-  //     inputBar.style.transform = bottomOffset > 0 ? `translateY(-${bottomOffset}px)` : 'translateY(0)';
-  //   };
+      const viewport = window.visualViewport;
 
-  //   viewport.addEventListener('resize', adjustForKeyboard);
-  //   viewport.addEventListener('scroll', adjustForKeyboard);
+      const adjustForKeyboard = () => {
+        const bottomOffset = window.innerHeight - viewport.height - viewport.offsetTop;
+        inputBar.style.transform =
+          bottomOffset > 0 ? `translateY(-${bottomOffset}px)` : 'translateY(0)';
+      };
 
-  //   return () => {
-  //     viewport.removeEventListener('resize', adjustForKeyboard);
-  //     viewport.removeEventListener('scroll', adjustForKeyboard);
-  //   };
-  // }, []);
+      viewport.addEventListener('resize', adjustForKeyboard);
+      viewport.addEventListener('scroll', adjustForKeyboard);
+
+      return () => {
+        viewport.removeEventListener('resize', adjustForKeyboard);
+        viewport.removeEventListener('scroll', adjustForKeyboard);
+      };
+    }, []);
+
 
 
   // Initialize component
@@ -854,7 +857,7 @@ const Chat: React.FC = () => {
             </div>
 
             {/* Message Input - Fixed Bottom */}
-            <div className="chat-input-bar sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 px-2 sm:px-4 py-2 sm:py-3 transition-transform duration-150">
+            <div ref={inputBarRef} className="chat-input-bar sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30 px-2 sm:px-4 py-2 sm:py-3 transition-transform duration-150">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 onTyping={handleTyping}
