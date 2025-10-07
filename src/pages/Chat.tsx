@@ -13,7 +13,6 @@ import {
   Bot,
   Pin,
   VolumeX,
-  Menu,
   X,
   AlertCircle
 } from 'lucide-react';
