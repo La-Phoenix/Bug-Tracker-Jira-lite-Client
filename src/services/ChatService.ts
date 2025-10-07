@@ -129,7 +129,7 @@ export class ChatService {
     });
   }
   static async addParticipantsToRoom(roomId: number, userIds: number[], requesterId: number): Promise<ApiResponse<ChatParticipant[]>> {
-    return this.makeRequest<ChatParticipant>(`rooms/${roomId}/participants`, {
+    return this.makeRequest<ChatParticipant[]>(`rooms/${roomId}/participants`, {
       method: 'POST',
       body: JSON.stringify({
         userIds,
