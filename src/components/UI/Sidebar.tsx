@@ -32,60 +32,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
       icon: Shield,
       description: 'Admin dashboard'
     }] : []),
-    { 
-      name: 'Dashboard', 
-      path: '/dashboard', 
-      icon: Home,
-      description: 'Overview and stats'
-    },
-    { 
-      name: 'Issues', 
-      path: '/issues', 
-      icon: Bug,
-      description: 'All bug reports'
-    },
-    { 
-      name: 'Projects', 
-      path: '/projects', 
-      icon: FolderOpen,
-      description: 'Project management'
-    },
-    { 
-      name: 'Chat', 
-      path: '/chat', 
-      icon: MessageSquare,
-      description: 'Team communication'
-    },
-    { 
-      name: 'Reports', 
-      path: '/reports', 
-      icon: BarChart3,
-      description: 'Analytics & insights'
-    },
-    { 
-      name: 'Labels', 
-      path: '/labels', 
-      icon: Tag,
-      description: 'Manage labels'
-    },
-    { 
-      name: 'Activity', 
-      path: '/activity', 
-      icon: Clock,
-      description: 'Recent activity'
-    },
-    { 
-      name: 'Team', 
-      path: '/team', 
-      icon: Users,
-      description: 'Team members'
-    },
-    { 
-      name: 'Settings', 
-      path: '/settings', 
-      icon: Settings,
-      description: 'App preferences'
-    },
+    { name: 'Dashboard', path: '/dashboard', icon: Home, description: 'Overview and stats' },
+    { name: 'Issues', path: '/issues', icon: Bug, description: 'All bug reports' },
+    { name: 'Projects', path: '/projects', icon: FolderOpen, description: 'Project management' },
+    { name: 'Chat', path: '/chat', icon: MessageSquare, description: 'Team communication' },
+    { name: 'Reports', path: '/reports', icon: BarChart3, description: 'Analytics & insights' },
+    { name: 'Labels', path: '/labels', icon: Tag, description: 'Manage labels' },
+    { name: 'Activity', path: '/activity', icon: Clock, description: 'Recent activity' },
+    { name: 'Team', path: '/team', icon: Users, description: 'Team members' },
+    { name: 'Settings', path: '/settings', icon: Settings, description: 'App preferences' },
   ];
 
   return (
@@ -99,14 +54,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
       )}
 
       {/* Sidebar */}
-      <div className={`
-        ${isMobile 
-          ? `fixed top-0 left-0 z-30 h-full w-64 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out ${
-              isOpen ? 'translate-x-0' : '-translate-x-full'
-            }`
-          : `fixed top-0 left-0 z-30 h-full w-64 bg-white dark:bg-gray-800 shadow-lg translate-x-0`
-        }
-      `}>
+      <div
+        className={`
+          ${isMobile 
+            ? `fixed top-0 left-0 z-30 h-full w-64 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out ${
+                isOpen ? 'translate-x-0' : '-translate-x-full'
+              }`
+            : `relative h-full w-64 bg-white dark:bg-gray-800 shadow-lg`
+          }
+        `}
+      >
         {/* Sidebar header */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
@@ -137,10 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
                   <Link
                     to={item.path}
                     onClick={() => {
-                      // Close sidebar on mobile when navigating
-                      if (isMobile) {
-                        setIsOpen(false);
-                      }
+                      if (isMobile) setIsOpen(false);
                     }}
                     className={`
                       group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors duration-150
