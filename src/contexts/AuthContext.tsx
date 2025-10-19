@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { AuthService } from '../services/authService';
 import type { User } from '../types/interface';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
@@ -11,45 +12,77 @@ interface AuthContextType {
   loginWithOAuth: (provider?: 'Google' | 'GitHub') => void;
   logout: () => void;
   isAuthenticated: boolean;
+  setAuthenticatedState: (userData: User, authToken?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Computed property for authentication status
+   const isAuthenticated = React.useMemo(() => {
+    // Basic checks first
+    if (!user || !token) {
+      console.log('❌ Auth check failed: missing user or token', { user: !!user, token: !!token });
+      return false;
+    }
+    
+    // Check if token is valid using AuthService
+    const serviceAuthCheck = AuthService.isAuthenticated();
+    console.log('🔍 AuthService.isAuthenticated():', serviceAuthCheck);
+    
+    if (!serviceAuthCheck) {
+      console.log('❌ Auth check failed: AuthService says not authenticated');
+      return false;
+    }
+    
+    console.log('✅ Authentication check passed');
+    return true;
+  }, [user, token]);
+
+  // Effect to handle navigation after authentication state changes
+  useEffect(() => {
+    if (pendingNavigation && user && token && !isLoading) {
+      console.log('🔄 Executing pending navigation to:', pendingNavigation);
+      navigate(pendingNavigation, { replace: true });
+      setPendingNavigation(null);
+    }
+  }, [user, token, isLoading, pendingNavigation, navigate]);
 
   useEffect(() => {
     initializeAuth();
   }, []);
 
   // Helper function to set authenticated state
-  const setAuthenticatedState = (userData: User, authToken: string) => {
+  const setAuthenticatedState = useCallback((userData: User, authToken?: string, shouldNavigate: boolean = false) => {
+    console.log('✅ Setting authenticated state for:', userData.email);
     setUser(userData);
-    setToken(authToken);
-    // Token is already stored in localStorage by AuthService
-    console.log('✅ User authenticated:', userData.email);
-  };
+    if (authToken) setToken(authToken);
+    
+    if (shouldNavigate) {
+      const targetPath = location.state?.from?.pathname || '/dashboard';
+      console.log('🔄 Setting pending navigation to:', targetPath);
+      setPendingNavigation(targetPath);
+    }
+  }, [location.state]);
 
   // Helper function to clear authenticated state
-  const clearAuthenticatedState = () => {
+  const clearAuthenticatedState = useCallback(() => {
     setUser(null);
     setToken(null);
+    setPendingNavigation(null);
     console.log('🔄 User state cleared');
-  };
+  }, []);
 
   const initializeAuth = async () => {
     try {
@@ -62,8 +95,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const result = await AuthService.handleOAuthCallback();
         
         if (result.success && result.data) {
-          const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] };
-          setAuthenticatedState(user, result.data.token);
+          const user = result.data as User;
+          delete (user as any).token;
+          setAuthenticatedState(user, result.data.token, true); // Navigate after OAuth
           console.log('✅ OAuth login successful for:', result.data.email);
         } else {
           console.error('❌ OAuth login failed:', result.message);
@@ -75,7 +109,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const currentToken = AuthService.getToken();
           
           if (currentUser && currentToken) {
-            setAuthenticatedState(currentUser, currentToken);
+            // Don't navigate during initialization - let route guards handle it
+            setUser(currentUser);
+            setToken(currentToken);
             console.log('✅ User already authenticated:', currentUser.email);
           }
         }
@@ -95,9 +131,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await AuthService.login(email, password);
       
       if (result.success && result.data) {
-        const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] };
-        setAuthenticatedState(user, result.data.token);
+        const user = result.data as User;
+        delete (user as any).token;
+        
+        // Use the helper function with navigation
+        setAuthenticatedState(user, result.data.token, true);
         console.log('✅ Login successful for:', result.data.email);
+        
         return { success: true };
       } else {
         console.error('❌ Login failed:', result.message);
@@ -116,10 +156,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const result = await AuthService.register(userData);
       
       if (result.success && result.data) {
-        // Auto-login after successful registration
-        const user = {email: result.data.email, role: result.data.role, id: result.data.id, name: result.data.name || result.data.email.split("@")[0] }
-        setAuthenticatedState(user, result.data.token);
+        const user = result.data as User;
+        delete (user as any).token;
+        
+        // Use the helper function with navigation
+        setAuthenticatedState(user, result.data.token, true);
         console.log('✅ Registration and auto-login successful for:', result.data.email);
+        
         return { success: true };
       } else {
         console.error('❌ Registration failed:', result.message);
@@ -140,10 +183,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('🔄 Logging out user');
     AuthService.logout();
     clearAuthenticatedState();
+    navigate('/auth', { replace: true });
   };
-
-  // Computed property for authentication status
-  const isAuthenticated = !!user && !!token && AuthService.isAuthenticated();
 
   const value = {
     user,
@@ -154,7 +195,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loginWithOAuth,
     logout,
     isAuthenticated,
+    setAuthenticatedState: (userData: User, authToken?: string) => setAuthenticatedState(userData, authToken, false),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+// Custom hook
+function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
+
+// Export both as named exports
+export { AuthProvider, useAuth };

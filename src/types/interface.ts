@@ -83,6 +83,12 @@ export interface User {
   role?: "Admin" | "User";
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  avatar?: string;
+  company?: string;
+  language?: string;
+  theme?: string;
+  fontSize?: string;
+  animationsEnabled?: boolean;
 }
 
 export interface UpdateIssueRequest {
@@ -223,4 +229,48 @@ export interface SystemHealth {
   apiResponseTime: number;
   uptime: string;
   lastChecked: string;
+}
+
+
+export interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  bio: string;
+  timezone: string;
+  language: string;
+  avatar: string;
+}
+
+export interface NotificationPreferences {
+  emailNotifications: boolean;
+  pushNotifications: boolean;
+  issueUpdates: boolean;
+  weeklyDigest: boolean;
+  mentionAlerts: boolean;
+  projectUpdates: boolean;
+  commentNotifications: boolean;
+  assignmentNotifications: boolean;
+}
+
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'system';
+  compactMode: boolean;
+  reducedMotion: boolean;
+  sidebarCollapsed: boolean;
+  animationsEnabled: boolean;
+  fontSize: 'small' | 'medium' | 'large';
+}
+
+export interface ActiveSession {
+  id: string;
+  device: string;
+  browser: string;
+  os: string;
+  location: string;
+  ipAddress: string;
+  lastActive: string;
+  isCurrent: boolean;
 }

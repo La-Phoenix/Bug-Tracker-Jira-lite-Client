@@ -57,15 +57,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
       <div
         className={`
           ${isMobile 
-            ? `fixed top-0 left-0 z-30 h-full w-64 bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out ${
+            ? `fixed top-0 left-0 z-30 w-64 h-full bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out ${
                 isOpen ? 'translate-x-0' : '-translate-x-full'
               }`
-            : `relative h-full w-64 bg-white dark:bg-gray-800 shadow-lg`
+            : `relative w-64 h-full bg-white dark:bg-gray-800 shadow-lg flex flex-col`
           }
         `}
       >
         {/* Sidebar header */}
-        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center">
             <Bug className="h-8 w-8 text-blue-600" />
             <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">
@@ -83,8 +83,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-3 pb-20 overflow-y-auto h-full custom-scrollbar">
-          <ul className="space-y-1">
+        <nav className="flex-1 mt-6 px-3 overflow-y-auto custom-scrollbar">
+          <ul className="space-y-1 pb-20">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -129,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen, isMobile = 
         </nav>
 
         {/* Footer */}
-        <div className="absolute bottom-0 w-full p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="flex-shrink-0 p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
             <span>BugTrackr Pro v1.0</span>
           </div>

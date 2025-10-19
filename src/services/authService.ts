@@ -70,7 +70,7 @@ class AuthServiceClass {
       
       if (responseData.data?.token) {
         localStorage.setItem('token', responseData.data.token);
-        const user = {email: responseData.data.email, role: responseData.data.role, id: responseData.data.id, name: responseData.data.name || responseData.data.email.split("@")[0] }
+        const user = responseData.data;
         localStorage.setItem('user', JSON.stringify(user));
       }
 
@@ -113,7 +113,7 @@ class AuthServiceClass {
       // Auto-login after successful registration
       if (responseData.data?.token) {
         localStorage.setItem('token', responseData.data.token);
-        const user = {email: responseData.data.email, role: responseData.data.role, id: responseData.data.id, name: responseData.data.name || responseData.data.email?.split("@")[0] }
+        const user = responseData.data;
         localStorage.setItem('user', JSON.stringify(user));
       }
 
@@ -185,12 +185,27 @@ class AuthServiceClass {
           console.log('🔍 JWT Payload:', payload);
           
           const user = {
-            id: parseInt(payload.sub || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']),
-            name: payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] || payload.name || payload.email,
+            id: parseInt(
+              payload.sub || 
+              payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
+            ),
+            name:
+              payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ||
+              payload.name ||
+              payload.email,
             email: payload.email,
-            role: payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || payload.role || 'User',
-            createdAt: payload.iat ? new Date(payload.iat * 1000).toISOString() : new Date().toISOString(),
-            updatedAt: new Date().toISOString()
+            role:
+              payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
+              payload.role ||
+              'User',
+            avatar:
+              payload['avatar'] ||
+              payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/avatar'] ||
+              null, //
+            createdAt: payload.iat
+              ? new Date(payload.iat * 1000).toISOString()
+              : new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           };
 
           localStorage.setItem('token', token);
@@ -230,7 +245,7 @@ class AuthServiceClass {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
   }
-
+  
   getCurrentUser(): User | null {
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
@@ -255,6 +270,15 @@ class AuthServiceClass {
       return payload.exp * 1000 > Date.now();
     } catch {
       return false;
+    }
+  }
+  // Update user avatar in localStorage
+  updateUserAvatar(avatarUrl: string): void {
+    const currentUser = this.getCurrentUser();
+    if (currentUser) {
+      const updatedUser = { ...currentUser, avatar: avatarUrl };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      console.log('✅ User avatar updated in localStorage:', avatarUrl);
     }
   }
 }

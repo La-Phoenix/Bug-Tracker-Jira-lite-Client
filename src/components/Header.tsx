@@ -122,6 +122,8 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const mobileSearchRef = useRef<HTMLDivElement>(null);
   const previousNotificationCount = useRef<number>(0);
 
+  console.log("user: ", user)
+
   // Load sound preference from localStorage
   useEffect(() => {
     const savedSoundPreference = localStorage.getItem('notificationSoundEnabled');
@@ -1029,10 +1031,27 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  {user?.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name || user.userName || 'User'} 
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white text-xs sm:text-sm font-medium">
+                      {(() => {
+                        const name = user?.name || user?.email || 'U';
+                        const nameParts = name.split(' ');
+                        if (nameParts.length >= 2) {
+                          return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+                        }
+                        return name.substring(0, 2).toUpperCase();
+                      })()}
+                    </span>
+                  )}
                 </div>
                 <span className="hidden md:block text-sm font-medium truncate max-w-32 lg:max-w-none">
-                  {user?.userName || user?.name  || user?.email}
+                  {user?.name || user?.userName  || user?.email}
                 </span>
                 <ChevronDown className="h-4 w-4 transition-transform duration-200" />
               </button>
@@ -1054,7 +1073,24 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="w-5 h-5 text-white" />
+                        {user?.avatar ? (
+                          <img 
+                            src={user.avatar} 
+                            alt={user.name || user.userName || 'User'} 
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white text-sm font-medium">
+                            {(() => {
+                              const name = user?.name || user?.userName || user?.email || 'U';
+                              const nameParts = name.split(' ');
+                              if (nameParts.length >= 2) {
+                                return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+                              }
+                              return name.substring(0, 2).toUpperCase();
+                            })()}
+                          </span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">

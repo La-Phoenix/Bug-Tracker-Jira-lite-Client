@@ -23,6 +23,9 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { SettingsSkeleton } from '../components/SettingsSkeleton';
+import { SettingsService } from '../services/SettingsService';
+import type { NotificationPreferences, UserPreferences, UserProfile } from '../types/interface';
+import { AuthService } from '../services/authService';
 
 interface SettingsSection {
   id: string;
@@ -71,7 +74,7 @@ const settingsSections: SettingsSection[] = [
 ];
 
 const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { user, setAuthenticatedState } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('profile');
   const [showPassword, setShowPassword] = useState(false);
@@ -80,9 +83,24 @@ const Settings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [error, setError] = useState<string>('');
+  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationType, setNotificationType] = useState<'success' | 'error'>('success');
+
+
+  useEffect(() => {
+  // Cleanup function to revoke object URLs
+    return () => {
+      if (avatarPreview) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
   
   // Form states
-  const [profileData, setProfileData] = useState({
+  const [profileData, setProfileData] = useState<Partial<UserProfile>>({
     name: user?.name || '',
     email: user?.email || '',
     phone: '',
@@ -92,7 +110,7 @@ const Settings: React.FC = () => {
     language: 'en'
   });
 
-  const [notificationSettings, setNotificationSettings] = useState({
+  const [notificationSettings, setNotificationSettings] = useState<NotificationPreferences>({
     emailNotifications: true,
     pushNotifications: true,
     issueUpdates: true,
@@ -110,21 +128,52 @@ const Settings: React.FC = () => {
     twoFactorEnabled: false
   });
 
-  const [appearanceSettings, setAppearanceSettings] = useState({
-    theme: 'system',
+  const [appearanceSettings, setAppearanceSettings] = useState<UserPreferences>({
+    theme: 'system' as const,
     compactMode: false,
     reducedMotion: false,
     sidebarCollapsed: false,
     animationsEnabled: true,
-    fontSize: 'medium'
+    fontSize: 'medium' as const
   });
 
+  // Load settings on component mount
   useEffect(() => {
-    // Simulate loading user settings
     const loadSettings = async () => {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setLoading(false);
+      setError('');
+      
+      try {
+        // Load profile data
+        const profileResponse = await SettingsService.getProfile();
+        if (profileResponse.success && profileResponse.data) {
+          setProfileData(profileResponse.data);
+        } else if (!profileResponse.success) {
+          console.warn('Failed to load profile:', profileResponse.message);
+        }
+
+        // Load notification preferences
+        const notificationResponse = await SettingsService.getNotificationPreferences();
+        if (notificationResponse.success && notificationResponse.data) {
+          setNotificationSettings(notificationResponse.data);
+        } else if (!notificationResponse.success) {
+          console.warn('Failed to load notifications:', notificationResponse.message);
+        }
+
+        // Load user preferences (appearance settings)
+        const preferencesResponse = await SettingsService.getUserPreferences();
+        if (preferencesResponse.success && preferencesResponse.data) {
+          setAppearanceSettings(preferencesResponse.data);
+        } else if (!preferencesResponse.success) {
+          console.warn('Failed to load preferences:', preferencesResponse.message);
+        }
+
+      } catch (error) {
+        console.error('Error loading settings:', error);
+        setError('Failed to load settings. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadSettings();
@@ -133,14 +182,175 @@ const Settings: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     setSaveSuccess(false);
+    setError('');
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      let response;
+
+      switch (activeSection) {
+        case 'profile':
+          response = await SettingsService.updateProfile(profileData);
+          break;
+          
+        case 'notifications':
+          response = await SettingsService.updateNotificationPreferences(notificationSettings);
+          break;
+          
+        case 'security':
+          if (securityData.newPassword) {
+            if (securityData.newPassword !== securityData.confirmPassword) {
+              setError('New passwords do not match');
+              showNotificationPopup('New passwords do not match', 'error');
+              return;
+            }
+            response = await SettingsService.changePassword(securityData);
+            if (response.success) {
+              // Clear password fields after successful change
+              setSecurityData(prev => ({
+                ...prev,
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+              }));
+            }
+          } else {
+            setError('Please enter a new password');
+            return;
+          }
+          break;
+          
+        case 'appearance':
+          response = await SettingsService.updateUserPreferences(appearanceSettings);
+          break;
+          
+        default:
+          return;
+      }
+
+      if (response && response.success) {
+        setSaveSuccess(true);
+        showNotificationPopup('Settings Saved Successfully!', 'success');
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setError(response?.message || 'Failed to save settings');
+        showNotificationPopup(response?.message || 'Failed to save settings', 'error');
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
+      setError('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const getUserFriendlyError = (error: any): string => {
+    // Check if it's an HTTP error
+    if (error?.message?.includes('HTTP error! status:')) {
+      const status = error.message.match(/status: (\d+)/)?.[1];
+      switch (status) {
+        case '413':
+          return 'Image file is too large. Please choose a smaller image (max 5MB).';
+        case '415':
+          return 'Invalid file type. Please select a JPEG, PNG, or WebP image.';
+        case '500':
+          return 'Server error occurred. Please try again later.';
+        case '401':
+          return 'You are not authorized to perform this action.';
+        case '403':
+          return 'Access denied. Please check your permissions.';
+        default:
+          return 'Upload failed. Please try again.';
+      }
+    }
+    
+    // Check for specific error messages
+    if (typeof error === 'string') {
+      if (error.includes('status: 415')) return 'Invalid file type. Please select a JPEG, PNG, or WebP image.';
+      if (error.includes('size')) return 'Image file is too large. Please choose a smaller image.';
+      if (error.includes('network')) return 'Network error. Please check your connection and try again.';
+    }
+    
+    return 'Something went wrong. Please try again.';
+  };
+
+  const showNotificationPopup = (message: string, type: 'success' | 'error') => {
+    setNotificationMessage(message);
+    setNotificationType(type);
+    setShowNotification(true);
+    setTimeout(() => setShowNotification(false), 4000);
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+      const errorMsg = 'Please select a valid image file (JPEG, PNG, or WebP)';
+      setError(errorMsg);
+      showNotificationPopup(errorMsg, 'error');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      const errorMsg = 'Image file is too large. Please choose an image smaller than 5MB.';
+      setError(errorMsg);
+      showNotificationPopup(errorMsg, 'error');
+      return;
+    }
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+    setError('');
+  };
+
+  const handleAvatarSubmit = async () => {
+    if (!avatarPreview) return;
+    
+    setIsSaving(true);
+    setError('');
+    
+    try {
+      const fileInput = document.getElementById('avatar-upload') as HTMLInputElement;
+      const file = fileInput?.files?.[0];
+      
+      if (file) {
+        const response = await SettingsService.uploadAvatar(file);
+        if (response.success && response.data) {
+          console.log("avatar: ", response.data.avatarUrl)
+          
+          // Update profile data state
+          setProfileData(prev => ({ ...prev, avatar: response.data.avatarUrl }));
+          
+          // Update localStorage
+          AuthService.updateUserAvatar(response.data.avatarUrl);
+          
+          // Update user context - don't navigate since this is just an avatar update
+          const updatedUser = { ...user!, avatar: response.data.avatarUrl };
+          setAuthenticatedState(updatedUser); // This now won't trigger navigation
+          
+          setSaveSuccess(true);
+          setTimeout(() => setSaveSuccess(false), 3000);
+          
+          // Clear preview after successful upload
+          setAvatarPreview('');
+          URL.revokeObjectURL(avatarPreview);
+          
+          // Show success popup
+          showNotificationPopup('Profile picture updated successfully!', 'success');
+        } else {
+          const friendlyError = getUserFriendlyError(response.message || 'Upload failed');
+          setError(friendlyError);
+          showNotificationPopup(friendlyError, 'error');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      const friendlyError = getUserFriendlyError(error);
+      setError(friendlyError);
+      showNotificationPopup(friendlyError, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -155,21 +365,91 @@ const Settings: React.FC = () => {
         </h3>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 sm:p-6 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
           <div className="relative">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-lg sm:text-2xl font-bold">
-              {profileData.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-lg sm:text-2xl font-bold overflow-hidden">
+              {avatarPreview ? (
+                <img 
+                  src={avatarPreview} 
+                  alt="Avatar Preview" 
+                  className="w-full h-full object-cover"
+                />
+              ) : profileData.avatar ? (
+                <img 
+                  src={profileData.avatar} 
+                  alt="Avatar" 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                (() => {
+                  const name = profileData.name || 'U';
+                  const nameParts = name.split(' ');
+                  if (nameParts.length >= 2) {
+                    return (nameParts[0][0] + nameParts[1][0]).toUpperCase();
+                  }
+                  return name.substring(0, 2).toUpperCase();
+                })()
+              )}
             </div>
             <button className="absolute -bottom-1 -right-1 p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors">
               <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
             </button>
           </div>
           <div className="flex-1">
-            <button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-              <Upload className="h-4 w-4" />
-              Change Avatar
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                id="avatar-upload"
+              />
+              <label
+                htmlFor="avatar-upload"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm cursor-pointer"
+              >
+                <Upload className="h-4 w-4" />
+                Choose Image
+              </label>
+              
+              {avatarPreview && (
+                <button
+                  onClick={handleAvatarSubmit}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                >
+                  {isSaving ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {isSaving ? 'Uploading...' : 'Upload Avatar'}
+                </button>
+              )}
+            </div>
+            
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              JPG, PNG or GIF. Max size 2MB.
+              JPG, PNG or WebP. Max size 5MB.
             </p>
+            
+            {/* Status Messages */}
+            {avatarPreview && !error && !saveSuccess && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                Preview ready - click "Upload Avatar" to save
+              </p>
+            )}
+            
+            {saveSuccess && !isSaving && (
+              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-xs mt-2">
+                <Check className="h-3 w-3" />
+                Avatar updated successfully!
+              </div>
+            )}
+            
+            {error && (
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-xs mt-2">
+                <AlertCircle className="h-3 w-3" />
+                {error}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -277,7 +557,7 @@ const Settings: React.FC = () => {
             placeholder="Tell us about yourself..."
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {profileData.bio.length}/160 characters
+            {profileData.bio?.length || 0}/160 characters
           </p>
         </div>
       </div>
@@ -619,7 +899,7 @@ const Settings: React.FC = () => {
           {['Small', 'Medium', 'Large'].map((size) => (
             <button
               key={size}
-              onClick={() => setAppearanceSettings(prev => ({ ...prev, fontSize: size.toLowerCase() }))}
+              onClick={() => setAppearanceSettings(prev => ({ ...prev, fontSize: size.toLowerCase() } as UserPreferences))}
               className={`p-2 sm:p-3 rounded-lg text-center transition-colors text-sm sm:text-base ${
                 appearanceSettings.fontSize === size.toLowerCase()
                   ? 'bg-blue-600 text-white'
@@ -697,6 +977,37 @@ const Settings: React.FC = () => {
     </div>
   );
 
+  const renderSaveSection = () => (
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+      <div className="flex flex-col gap-2">
+        {saveSuccess && (
+          <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+            <Check className="h-4 w-4" />
+            Settings saved successfully!
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+        )}
+      </div>
+      <button
+        onClick={handleSave}
+        disabled={isSaving}
+        className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
+      >
+        {isSaving ? (
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+        ) : (
+          <Save className="h-4 w-4" />
+        )}
+        {isSaving ? 'Saving...' : 'Save Changes'}
+      </button>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'profile':
@@ -722,6 +1033,35 @@ const Settings: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
+      {/* Notification Popup */}
+      {showNotification && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full">
+          <div className={`p-4 rounded-lg shadow-lg border ${
+            notificationType === 'success' 
+              ? ' text-green-800 dark:text-green-200 bg-green-100 dark:bg-green-800 border-2 border-green-300 dark:border-green-600 '
+              : ' bg-red-100 dark:bg-red-800 border-2 border-red-300 dark:border-red-600 text-red-800 dark:text-red-200'
+          } animate-slide-in`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                {notificationType === 'success' ? (
+                  <Check className="h-5 w-5 bg-green-500 dark:bg-green-600" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 bg-red-500 dark:bg-red-600" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">{notificationMessage}</p>
+              </div>
+              <button
+                onClick={() => setShowNotification(false)}
+                className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -735,7 +1075,7 @@ const Settings: React.FC = () => {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setShowMobileSidebar(!showMobileSidebar)}
-            className="lg:hidden flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4"
+            className="lg:hidden text-white flex items-center gap-2 p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mb-4"
           >
             <Menu className="h-4 w-4" />
             <span className="text-sm">Settings Menu</span>
@@ -829,29 +1169,9 @@ const Settings: React.FC = () => {
               {renderContent()}
               
               {/* Save Button */}
-              {(activeSection === 'profile' || activeSection === 'notifications' || activeSection === 'security' || activeSection === 'appearance') && (
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
-                  {saveSuccess && (
-                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
-                      <Check className="h-4 w-4" />
-                      Settings saved successfully!
-                    </div>
-                  )}
-                  <div className="flex-1"></div>
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
-                  >
-                    {isSaving ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              )}
+              {(activeSection === 'profile' || activeSection === 'notifications' || activeSection === 'security' || activeSection === 'appearance') && 
+                renderSaveSection()
+              }
             </div>
           </div>
         </div>
