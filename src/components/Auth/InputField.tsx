@@ -7,9 +7,10 @@ interface InputFieldProps {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   error?: string;
+  placeholder?: string;
 }
 
-export const InputField: React.FC<InputFieldProps> = ({ id, label, type, value, onChange, error }) => {
+export const InputField: React.FC<InputFieldProps> = ({ id, label, type, value, onChange, error, placeholder}) => {
   return (
     <div className="mb-6">
       <div className="relative">
@@ -18,7 +19,7 @@ export const InputField: React.FC<InputFieldProps> = ({ id, label, type, value, 
           type={type}
           value={value}
           onChange={onChange}
-          placeholder=" "
+          placeholder={placeholder || ''}
           required
           className={`peer w-full px-4 pt-5 pb-2 border rounded-lg bg-gray-100 text-gray-800 placeholder-transparent focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-400 ${
             error ? 'border-red-500' : 'border-gray-300'

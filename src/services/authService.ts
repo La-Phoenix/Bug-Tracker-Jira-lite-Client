@@ -2,6 +2,15 @@ import type { User } from "../types/interface";
 import type { ApiResponse } from "../types/response";
 import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from "../utils/constants";
 
+interface ForgotPasswordDto {
+  email: string;
+}
+
+interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
 
 export interface LoginResponse {
   success: boolean;
@@ -244,6 +253,52 @@ class AuthServiceClass {
   logout(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+  }
+
+  async forgotPassword(data: ForgotPasswordDto): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_SERVER_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        return { success: true, data: result, message: result?.message || "Success", statusCode: 200 };
+      } else {
+        return { success: false, message: result.message || 'Failed to send password reset email', statusCode: 400 };
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return { success: false, message: 'Network error occurred', statusCode: 500};
+    }
+  }
+
+  async resetPassword(data: ResetPasswordDto): Promise<ApiResponse> {
+    try {
+      const response = await fetch(`${API_SERVER_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        return { success: true, data: result, message: result?.message || "Success", statusCode: 200 };
+      } else {
+        return { success: false, message: result.message || 'Failed to send password reset email', statusCode: 400 };
+      }
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return { success: false, message: 'Network error occurred', statusCode: 500};
+    }
   }
   
   getCurrentUser(): User | null {

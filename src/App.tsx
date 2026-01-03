@@ -3,7 +3,7 @@ import { MainLayout } from './layouts/MainLayout'
 import Dashboard from './pages/Dashboard'
 import { Route, Routes, useNavigate } from 'react-router-dom'
 import Auth from './pages/Auth/AuthPage'
-import { PrivateRoute, PublicRoute } from './components/ProtectedRoutes'
+import { PrivateRoute, PublicOnlyRoute, PublicRoute } from './components/ProtectedRoutes'
 import { useEffect } from 'react'
 import Settings from './pages/Settings'
 import Issues from './pages/Issues'
@@ -16,6 +16,7 @@ import Chat from './pages/Chat'
 import { useAuth } from './contexts/AuthContext'
 import { AuthLoader } from './components/AuthLoader'
 import AdminDashboard from './pages/AdminDashboard'
+import ResetPasswordPage from './pages/ResetPassword'
 
 const App = () => {
   const { isLoading, isAuthenticated } = useAuth();
@@ -24,6 +25,7 @@ const App = () => {
     const navigate = useNavigate();
 
     useEffect(() => {
+      console.log('✅ Navgating userrr');
       navigate(page, { replace: true });
     }, [navigate, page]);
 
@@ -43,6 +45,14 @@ const App = () => {
           <PublicRoute>
             <Auth />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <PublicOnlyRoute>
+            <ResetPasswordPage />
+          </PublicOnlyRoute>
         }
       />
       <Route element={<MainLayout />}>

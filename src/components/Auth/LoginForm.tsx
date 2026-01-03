@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import { InputField } from './InputField';
-// import { SocialButton } from './SocialButton';
 import { useAuthForm } from '../../hooks/useAuthForm';
-// import { API_CLIENT_BASE_URL, API_SERVER_BASE_URL } from '../../utils/constants';
 import { useNavigate } from 'react-router-dom';
 import { ErrorPopup, useErrorPopup } from '../PopUp';
 import { Button } from '../Button';
@@ -11,9 +9,10 @@ import { OAuthButton } from '../OAuthButton';
 
 type LoginFormProps = {
   onToggle: () => void;
+  onForgotPassword: () => void;
 };
 
-export const LoginForm = ({ onToggle }: LoginFormProps) => {
+export const LoginForm = ({ onToggle, onForgotPassword }: LoginFormProps) => {
   const { 
     formData, 
     errors, 
@@ -21,11 +20,10 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
     clearErrors,
     loading,
     setLoading,
-    // setErrors
   } = useAuthForm();
 
   const { error, showError, hideError } = useErrorPopup();
-  const { login, isAuthenticated } = useAuth(); // Use the login from AuthContext
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
@@ -47,7 +45,6 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
 
       if (result.success) {
         showError('Login successful! Redirecting to dashboard...', 'Login Success', 'info');
-        // Navigation will be handled by the useEffect above
         setTimeout(() => {
           navigate('/dashboard', { replace: true });
         }, 1500);
@@ -61,6 +58,7 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
       setLoading(false);
     }
   }
+
   return (
     <>
       <form onSubmit={handleSubmit} className="animate-fade-in">
@@ -72,7 +70,12 @@ export const LoginForm = ({ onToggle }: LoginFormProps) => {
             <input type="checkbox" id="remember" className="accent-indigo-500 mr-2" />
             <label htmlFor="remember" className="text-sm text-gray-600">Remember me</label>
           </div>
-          <span className="text-sm text-[#1f2630] hover:underline cursor-pointer">Forgot password?</span>
+          <span 
+            className="text-sm text-[#1f2630] hover:underline cursor-pointer"
+            onClick={onForgotPassword}
+          >
+            Forgot password?
+          </span>
         </div>
         <Button type="submit" isLoading={loading} message="Signing In...">
           Sign In

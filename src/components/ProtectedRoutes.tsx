@@ -48,3 +48,16 @@ export const PublicRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   // If not authenticated, render the public component (auth page)
   return <>{children}</>;
 };
+
+// New component for pages that should be accessible to everyone
+export const PublicOnlyRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { isLoading } = useAuth();
+
+  // Show loading while auth is being determined
+  if (isLoading) {
+    return <AppLoader variant="auth" message="Loading..." />;
+  }
+
+  // Allow access regardless of authentication status
+  return <>{children}</>;
+};
