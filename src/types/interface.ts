@@ -231,6 +231,49 @@ export interface SystemHealth {
   lastChecked: string;
 }
 
+export type PriorityLevel = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  message: string;
+  data?: string; // JSON string for contextual data
+  isRead: boolean;
+  createdAt: string;
+  timestamp?: string;
+  readAt?: string;
+  expiresAt?: string;
+  groupKey?: string;
+  priority: PriorityLevel;
+}
+
+export type NotificationType = 
+  | 'IssueAssigned'
+  | 'IssueCreated' 
+  | 'IssueUpdated'
+  | 'IssueCommented'
+  | 'UserMentioned'
+  | 'ProjectInvitation'
+  | 'ProjectUpdate'
+  | 'ChatMessage'
+  | 'ChatInvitation'
+  | 'ChatGroupCreated'
+  | 'SystemAlert'
+  | 'WeeklyDigest';
+
+export interface NotificationResponse {
+  notifications: Notification[];
+  unreadCount: number;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    hasNext: boolean;
+  };
+}
+
 
 export interface UserProfile {
   id: number;
